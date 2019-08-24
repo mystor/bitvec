@@ -1020,6 +1020,9 @@ where T: BitStore {
 			"Pointer {:p} is too high in memory",
 			other_ptr,
 		);
+		//  FIXME(myrrlyn): When `core::ptr::wrapping_offset_from` stabilizes,
+		//  use that instead of integer arithmetic.
+		//  Rust tracking issue: https://github.com/rust-lang/rust/issues/41079
 		let elts = other_ptr.u() as isize - self_ptr.u() as isize;
 		let bits = *other.head() as i8 - *self.head() as i8;
 		(elts, bits)

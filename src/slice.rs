@@ -2154,6 +2154,102 @@ where C: Cursor, T: BitStore {
 		self.set_unchecked(to, bit);
 	}
 
+	/// Produces the absolute offset in bits between two slice heads.
+	///
+	/// While this method is sound for any two arbitrary bit slices, the answer
+	/// it produces is meaningful *only* when one argument is a strict subslice
+	/// of the other. If the two slices are created from different buffers
+	/// entirely, a comparison is unsound; if the two slices are disjoint
+	/// regions of the same buffer, then the semantically correct distance is
+	/// between the tail of the lower and the head of the upper, which this
+	/// does not measure.
+	///
+	/// # Visual Description
+	///
+	/// Consider the following sequence of bits:
+	///
+	/// ```text
+	/// [ 0 1 2 3 [ 4 5 6 7 ] 8 9 a b ]
+	/// |         ^^^^^^^^^^^         |
+	/// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+	/// ```
+	///
+	/// It does not matter whether there are bits between the tail of the
+	/// smaller and the larger slices. The offset is computed from the bit
+	/// distance between the two heads.
+	///
+	/// # Behavior
+	///
+	/// This function computes the *semantic* distance between the heads, rather
+	/// than the *electrical. It does not take into account the `Cursor`
+	/// implementation of the slice. See the [`::electrical_distance`] method
+	/// for that comparison.
+	///
+	/// # Safety and Soundness
+	///
+	/// One of `self` or `other` must contain the other for this comparison to
+	/// be meaningful.
+	///
+	/// # Parameters
+	///
+	/// - `&self`
+	/// - `other`: Another bit slice. This must be either a strict subregion or
+	///   a strict superregion of `self`.
+	///
+	/// # Returns
+	///
+	/// The distance in (semantic) bits betwen the heads of each region.
+	///
+	/// [`::electrical_distance]`: #method.electrical_comparison
+	pub fn offset_from(&self, other: &Self) -> usize {
+		let (elts, bits) = unsafe { self.bitptr().ptr_diff(other.bitptr()) };
+		elts.saturating_mul(8).saturating_add(bits as isize).abs() as usize
+	}
+
+	/// Computes the electrical distance between the heads of two slices.
+	///
+	/// This method uses each slice’s `Cursor` implementation to compute the bit
+	/// position of their heads, then computes the distance, in bits, between
+	/// them.
+	///
+	/// This computation presumes that the bits are counted in the same
+	/// direction as are bytes in the abstract memory map.
+	///
+	/// # Parameters
+	///
+	/// - `&self`
+	/// - `other`: A bit-slice reference using the same storage type and any
+	///   `Cursor` type. It must be a strict subregion or strict superregion of
+	///   `self`.
+	///
+	/// # Returns
+	///
+	/// The electrical bit distance between the heads of `self` and `other`.
+	///
+	/// # Type Parameters
+	///
+	/// - `D: Cursor`: The `other` slice handle may use any `Cursor` and is not
+	///   constrained to the `C: Cursor` of `self`.
+	pub fn electrical_distance<D>(&self, other: &BitSlice<D, T>) -> usize
+	where D: Cursor {
+		let this = self.bitptr();
+		let that = other.bitptr();
+		let (elts, bits) = unsafe {
+			let this = BitPtr::new_unchecked(
+				this.pointer(),
+				(*C::at::<T>(this.head())).idx(),
+				1,
+			);
+			let that = BitPtr::new_unchecked(
+				that.pointer(),
+				(*D::at::<T>(that.head())).idx(),
+				1,
+			);
+			this.ptr_diff(that)
+		};
+		elts.saturating_mul(8).saturating_add(bits as isize).abs() as usize
+	}
+
 	/// Accesses the underlying pointer structure.
 	///
 	/// # Parameters

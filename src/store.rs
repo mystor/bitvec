@@ -163,31 +163,6 @@ pub trait BitStore:
 	/// # Type Parameters
 	///
 	/// - `C`: A `Cursor` implementation to translate the index into a position.
-	///
-	/// # Examples
-	///
-	/// This example sets and clears bits in a byte.
-	///
-	/// ```rust
-	/// use bitvec::prelude::{
-	///   BitIdx,
-	///   BitStore,
-	///   BigEndian,
-	///   LittleEndian,
-	/// };
-	///
-	/// let mut elt: u16 = 0;
-	///
-	/// elt.set::<BigEndian>(BitIdx::new(1), true);
-	/// assert_eq!(elt, 0b0100_0000__0000_0000);
-	/// elt.set::<LittleEndian>(BitIdx::new(1), true);
-	/// assert_eq!(elt, 0b0100_0000__0000_0010);
-	///
-	/// elt.set::<BigEndian>(BitIdx::new(1), false);
-	/// assert_eq!(elt, 0b0000_0000__0000_0010);
-	/// elt.set::<LittleEndian>(BitIdx::new(1), false);
-	/// assert_eq!(elt, 0);
-	/// ```
 	#[inline(always)]
 	fn set<C>(&self, place: BitIdx<Self>, value: bool)
 	where C: Cursor {
@@ -236,18 +211,6 @@ pub trait BitStore:
 	/// # Type Parameters
 	///
 	/// - `C`: A `Cursor` implementation to translate the index into a position.
-	///
-	/// # Examples
-	///
-	/// This example gets two bits from a byte.
-	///
-	/// ```rust
-	/// use bitvec::prelude::{BitIdx, BitStore, BigEndian};
-	/// let elt: u8 = 0b0010_0000;
-	/// assert!(!elt.get::<BigEndian>(BitIdx::new(1)));
-	/// assert!(elt.get::<BigEndian>(BitIdx::new(2)));
-	/// assert!(!elt.get::<BigEndian>(BitIdx::new(3)));
-	/// ```
 	fn get<C>(&self, place: BitIdx<Self>) -> bool
 	where C: Cursor {
 		self.load() & *C::mask(place) != Self::from(0)
