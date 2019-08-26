@@ -68,6 +68,9 @@ pub mod vec;
 #[cfg(feature = "atomic")]
 mod atomic;
 
+#[cfg(feature = "nom")]
+pub mod nom_compat;
+
 #[cfg(feature = "serde")]
 mod serdes;
 

@@ -29,7 +29,8 @@ readme = "README.md"
 repository = "https://github.com/myrrlyn/bitvec"
 
 [features]
-alloc = []
+alloc = [
+]
 atomic = []
 default = [
 	"atomic",
@@ -43,6 +44,11 @@ testing = [
 	"serde",
 	"std",
 ]
+
+[dependencies.nom]
+optional = true
+version = "5"
+default-features = false
 
 [dependencies.serde]
 default-features = false
