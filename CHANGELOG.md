@@ -4,6 +4,15 @@ All notable changes will be documented in this file.
 
 This document is written according to the [Keep a Changelog][kac] style.
 
+## 0.16.0
+
+### Changed
+
+- `Bits` and `BitsMut` traits now have eponymous methods. The inherent methods
+  `as_bitslice` and `as_mut_bitslice` on `BitBox` and `BitVec` are similarly
+  renamed to `as_bits` and `as_bits_mut`. The old names are marked deprecated,
+  and will be removed in `0.17`.
+
 ## 0.15.1
 
 ### Removed

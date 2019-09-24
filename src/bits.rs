@@ -10,12 +10,12 @@ Trait coherence rules forbid the following blanket implementation,
 ```rust,ignore
 impl<C: Cursor, T: Bits> AsRef<BitSlice<C, T::Store>> for T {
   fn as_ref(&self) -> &BitSlice<C, T::Store> {
-    Bits::as_bitslice(self)
+    Bits::as_bits(self)
   }
 }
 impl<C: Cursor, T: BitsMut> AsMut<BitSlice<C, T::Store>> for T {
   fn as_ref(&mut self) -> &mut BitSlice<C, T::Store> {
-    BitsMut::as_mut_bitslice(self)
+    BitsMut::as_bits_mut(self)
   }
 }
 ```
@@ -23,6 +23,10 @@ impl<C: Cursor, T: BitsMut> AsMut<BitSlice<C, T::Store>> for T {
 but it is correct in theory, and so all types which implement `Bits` should
 implement `AsRef<BitSlice>` and all types which implement `BitsMut` should
 implement `AsMut<BitSlice>`.
+
+Until type-level integers stabilize, this module only implements `Bits` and
+`BitsMut` on arrays up to length 32; arrays larger than 32 must use the slice
+implementation.
 !*/
 
 use crate::{
@@ -51,7 +55,7 @@ pub trait Bits {
 	///
 	/// # Type Parameters
 	///
-	/// - `C: Cursor`: The `Cursor` type used to index within the slice.
+	/// - `C`: The `Cursor` type used to index within the slice.
 	///
 	/// # Parameters
 	///
@@ -68,11 +72,18 @@ pub trait Bits {
 	/// use bitvec::prelude::*;
 	///
 	/// let src = 8u8;
-	/// let bits = src.as_bitslice::<BigEndian>();
+	/// let bits = src.bits::<BigEndian>();
 	/// assert!(bits[4]);
 	/// ```
-	fn as_bitslice<C>(&self) -> &BitSlice<C, Self::Store>
+	fn bits<C>(&self) -> &BitSlice<C, Self::Store>
 	where C: Cursor;
+
+	/// Former name of `Bits::bits`.
+	#[deprecated(since = "0.16.0", note = "Use `.bits` instead")]
+	fn as_bitslice<C>(&self) -> &BitSlice<C, Self::Store>
+	where C: Cursor {
+		self.bits::<C>()
+	}
 }
 
 /** Allows a type to be used as a sequence of mutable bits.
@@ -87,7 +98,7 @@ pub trait BitsMut: Bits {
 	///
 	/// # Type Parameters
 	///
-	/// - `C: Cursor`: The `Cursor` type used to index within the slice.
+	/// - `C`: The `Cursor` type used to index within the slice.
 	///
 	/// # Parameters
 	///
@@ -104,141 +115,99 @@ pub trait BitsMut: Bits {
 	/// use bitvec::prelude::*;
 	///
 	/// let mut src = 8u8;
-	/// let bits = src.as_mut_bitslice::<LittleEndian>();
+	/// let bits = src.bits_mut::<LittleEndian>();
 	/// assert!(bits[3]);
 	/// *bits.at(3) = false;
 	/// assert!(!bits[3]);
 	/// ```
-	fn as_mut_bitslice<C>(&mut self) -> &mut BitSlice<C, Self::Store>
+	fn bits_mut<C>(&mut self) -> &mut BitSlice<C, Self::Store>
 	where C: Cursor;
-}
 
-macro_rules! impl_bits_for {
-	( $( $t:ty ),* ) => { $(
-impl<C> AsMut<BitSlice<C, $t>> for $t
-where C: Cursor {
-	fn as_mut(&mut self) -> &mut BitSlice<C, $t> {
-		BitsMut::as_mut_bitslice(self)
+	/// Former name of `BitsMut::bits_mut`.
+	#[deprecated(since = "0.16.0", note = "Use `.bits_mut` instead")]
+	fn as_mut_bitslice<C>(&mut self) -> &mut BitSlice<C, Self::Store>
+	where C: Cursor {
+		self.bits_mut::<C>()
 	}
 }
 
-impl<C> AsRef<BitSlice<C, $t>> for $t
-where C: Cursor {
-	fn as_ref(&self) -> &BitSlice<C, $t> {
-		Bits::as_bitslice(self)
-	}
-}
+impl<T> Bits for T
+where T: BitStore {
+	type Store = T;
 
-impl Bits for $t {
-	type Store = $t;
-
-	fn as_bitslice<C>(&self) -> &BitSlice<C, Self::Store>
+	#[inline]
+	fn bits<C>(&self) -> &BitSlice<C, Self::Store>
 	where C: Cursor {
 		BitSlice::from_element(self)
 	}
 }
 
-impl BitsMut for $t {
-	fn as_mut_bitslice<C>(&mut self) -> &mut BitSlice<C, Self::Store>
+impl<T> BitsMut for T
+where T: BitStore {
+	#[inline]
+	fn bits_mut<C>(&mut self) -> &mut BitSlice<C, Self::Store>
 	where C: Cursor {
 		BitSlice::from_element_mut(self)
 	}
 }
 
-impl<C> AsMut<BitSlice<C, $t>> for [$t]
-where C: Cursor {
-	fn as_mut(&mut self) -> &mut BitSlice<C, $t> {
-		BitsMut::as_mut_bitslice(self)
-	}
-}
+impl<T> Bits for [T]
+where T: BitStore {
+	type Store = T;
 
-impl<C> AsRef<BitSlice<C, $t>> for [$t]
-where C: Cursor {
-	fn as_ref(&self) -> &BitSlice<C, $t> {
-		Bits::as_bitslice(self)
-	}
-}
-
-impl Bits for [$t] {
-	type Store = $t;
-
-	fn as_bitslice<C>(&self) -> &BitSlice<C, Self::Store>
+	#[inline]
+	fn bits<C>(&self) -> &BitSlice<C, Self::Store>
 	where C: Cursor {
 		BitSlice::from_slice(self)
 	}
 }
 
-impl BitsMut for [$t] {
-	fn as_mut_bitslice<C>(&mut self) -> &mut BitSlice<C, Self::Store>
+impl<T> BitsMut for [T]
+where T: BitStore {
+	#[inline]
+	fn bits_mut<C>(&mut self) -> &mut BitSlice<C, Self::Store>
 	where C: Cursor {
 		BitSlice::from_slice_mut(self)
 	}
 }
 
-impl<C> AsMut<BitSlice<C, $t>> for [$t; 0]
-where C: Cursor {
-	fn as_mut(&mut self) -> &mut BitSlice<C, $t> {
-		BitsMut::as_mut_bitslice(self)
-	}
-}
+impl<T> Bits for [T; 0]
+where T: BitStore {
+	type Store = T;
 
-impl<C> AsRef<BitSlice<C, $t>> for [$t; 0]
-where C: Cursor {
-	fn as_ref(&self) -> &BitSlice<C, $t> {
-		Bits::as_bitslice(self)
-	}
-}
-
-impl Bits for [$t; 0] {
-	type Store = $t;
-
-	fn as_bitslice<C>(&self) -> &BitSlice<C, Self::Store>
+	#[inline]
+	fn bits<C>(&self) -> &BitSlice<C, Self::Store>
 	where C: Cursor {
 		BitSlice::empty()
 	}
 }
 
-impl BitsMut for [$t; 0] {
-	fn as_mut_bitslice<C>(&mut self) -> &mut BitSlice<C, Self::Store>
+impl<T> BitsMut for [T; 0]
+where T: BitStore {
+	#[inline]
+	fn bits_mut<C>(&mut self) -> &mut BitSlice<C, Self::Store>
 	where C: Cursor {
 		BitSlice::empty_mut()
 	}
 }
 
-impl_bits_for! { array $t ;
-	    1  2  3  4  5  6  7  8  9
-	10 11 12 13 14 15 16 17 18 19
-	20 21 22 23 24 25 26 27 28 29
-	30 31 32 // going above 32 is a DoS attack on the compiler
-}
-	)* };
+macro_rules! impl_bits_for {
+	( $( $n:expr )* ) => { $(
+impl<T> Bits for [T; $n]
+where T: BitStore {
+	type Store = T;
 
-	( array $t:ty ; $( $n:expr )* ) => { $(
-impl<C> AsMut<BitSlice<C, $t>> for [$t; $n]
-where C: Cursor {
-	fn as_mut(&mut self) -> &mut BitSlice<C, $t> {
-		BitsMut::as_mut_bitslice(self)
-	}
-}
-
-impl<C> AsRef<BitSlice<C, $t>> for [$t; $n]
-where C: Cursor {
-	fn as_ref(&self) -> &BitSlice<C, $t> {
-		Bits::as_bitslice(self)
-	}
-}
-
-impl Bits for [$t; $n] {
-	type Store = $t;
-
-	fn as_bitslice<C>(&self) -> &BitSlice<C, Self::Store>
+	#[inline]
+	fn bits<C>(&self) -> &BitSlice<C, Self::Store>
 	where C: Cursor {
 		BitSlice::from_slice(&self[..])
 	}
 }
 
-impl BitsMut for [$t; $n] {
-	fn as_mut_bitslice<C>(&mut self) -> &mut BitSlice<C, Self::Store>
+impl<T> BitsMut for [T; $n]
+where T: BitStore {
+	#[inline]
+	fn bits_mut<C>(&mut self) -> &mut BitSlice<C, Self::Store>
 	where C: Cursor {
 		BitSlice::from_slice_mut(&mut self[..])
 	}
@@ -246,7 +215,91 @@ impl BitsMut for [$t; $n] {
 	)* };
 }
 
-impl_bits_for! { u8, u16, u32 }
+impl_bits_for! {
+	    1  2  3  4  5  6  7  8  9
+	10 11 12 13 14 15 16 17 18 19
+	20 21 22 23 24 25 26 27 28 29
+	30 31 32 // going above 32 is a DoS attack on the compiler
+}
+
+macro_rules! impl_ref_for {
+	( $( $t:ty ),* ) => { $(
+impl<C> AsMut<BitSlice<C, $t>> for $t
+where C: Cursor {
+	#[inline]
+	fn as_mut(&mut self) -> &mut BitSlice<C, $t> {
+		BitsMut::bits_mut(self)
+	}
+}
+
+impl<C> AsRef<BitSlice<C, $t>> for $t
+where C: Cursor {
+	#[inline]
+	fn as_ref(&self) -> &BitSlice<C, $t> {
+		Bits::bits(self)
+	}
+}
+
+impl<C> AsMut<BitSlice<C, $t>> for [$t]
+where C: Cursor {
+	#[inline]
+	fn as_mut(&mut self) -> &mut BitSlice<C, $t> {
+		BitsMut::bits_mut(self)
+	}
+}
+
+impl<C> AsRef<BitSlice<C, $t>> for [$t]
+where C: Cursor {
+	#[inline]
+	fn as_ref(&self) -> &BitSlice<C, $t> {
+		Bits::bits(self)
+	}
+}
+
+impl<C> AsMut<BitSlice<C, $t>> for [$t; 0]
+where C: Cursor {
+	#[inline]
+	fn as_mut(&mut self) -> &mut BitSlice<C, $t> {
+		BitsMut::bits_mut(self)
+	}
+}
+
+impl<C> AsRef<BitSlice<C, $t>> for [$t; 0]
+where C: Cursor {
+	#[inline]
+	fn as_ref(&self) -> &BitSlice<C, $t> {
+		Bits::bits(self)
+	}
+}
+
+impl_ref_for! { array $t ;
+	    1  2  3  4  5  6  7  8  9
+	10 11 12 13 14 15 16 17 18 19
+	20 21 22 23 24 25 26 27 28 29
+	30 31 32
+}
+	)* };
+
+	( array $t:ty ; $( $n:expr )* ) => { $(
+impl<C> AsMut<BitSlice<C, $t>> for [$t; $n]
+where C: Cursor {
+	#[inline]
+	fn as_mut(&mut self) -> &mut BitSlice<C, $t> {
+		BitsMut::bits_mut(self)
+	}
+}
+
+impl<C> AsRef<BitSlice<C, $t>> for [$t; $n]
+where C: Cursor {
+	#[inline]
+	fn as_ref(&self) -> &BitSlice<C, $t> {
+		Bits::bits(self)
+	}
+}
+	)* };
+}
+
+impl_ref_for! { u8, u16, u32 }
 
 #[cfg(target_pointer_width = "64")]
-impl_bits_for! { u64 }
+impl_ref_for! { u64 }

@@ -540,7 +540,7 @@ where C: Cursor, T: BitStore {
 	/// ```rust
 	/// use bitvec::prelude::*;
 	///
-	/// let bs = [0u8, !0].as_bitslice::<BigEndian>();
+	/// let bs = [0u8, !0].bits::<BigEndian>();
 	/// let bv = BitVec::from_bitslice(bs);
 	/// assert_eq!(bv.len(), 16);
 	/// assert!(bv.some());
@@ -825,9 +825,9 @@ where C: Cursor, T: BitStore {
 	/// use bitvec::prelude::*;
 	///
 	/// let bv = bitvec![0, 1, 1, 0];
-	/// let bs = bv.as_bitslice();
+	/// let bs = bv.as_bits();
 	/// ```
-	pub fn as_bitslice(&self) -> &BitSlice<C, T> {
+	pub fn as_bits(&self) -> &BitSlice<C, T> {
 		self.bitptr.into_bitslice()
 	}
 
@@ -849,9 +849,9 @@ where C: Cursor, T: BitStore {
 	/// use bitvec::prelude::*;
 	///
 	/// let mut bv = bitvec![0, 1, 1, 0];
-	/// let bs = bv.as_mut_bitslice();
+	/// let bs = bv.as_bits_mut();
 	/// ```
-	pub fn as_mut_bitslice(&mut self) -> &mut BitSlice<C, T> {
+	pub fn as_bits_mut(&mut self) -> &mut BitSlice<C, T> {
 		self.bitptr.into_bitslice_mut()
 	}
 
@@ -1254,7 +1254,7 @@ where C: Cursor, T: BitStore {
 
 		unsafe {
 			let ranging: &BitSlice<C, T> = self
-				.as_bitslice()[from .. upto]
+				.as_bits()[from .. upto]
 				//  remove the lifetime and borrow awareness
 				.bitptr()
 				.into_bitslice();
@@ -1565,7 +1565,7 @@ where C: Cursor, T: BitStore {
 		//  Delegate to the `BitSlice` implementation for the initial addition.
 		//  If `addend` expires first, it zero-extends; if `self` expires first,
 		//  `addend` will still have its remnant for the next stage.
-		let mut c = self.as_mut_bitslice().add_assign_reverse(addend.by_ref());
+		let mut c = self.as_bits_mut().add_assign_reverse(addend.by_ref());
 		//  If `addend` still has bits to provide, zero-extend `self` and add
 		//  them in.
 		for b in addend {
@@ -1610,12 +1610,12 @@ where C: Cursor, T: BitStore {
 	/// ```rust
 	/// use bitvec::prelude::*;
 	///
-	/// let src = &0x7Eu8.as_bitslice::<BigEndian>()[1 .. 7];
+	/// let src = &0x7Eu8.bits::<BigEndian>()[1 .. 7];
 	/// assert_eq!(src.len(), 6);
 	/// let mut bv = src.to_owned();
 	/// assert_eq!(bv.len(), 6);
 	/// assert_eq!(bv.as_slice(), &[0x7E]);
-	/// assert_eq!(&bv, &0xFCu8.as_bitslice::<BigEndian>()[.. 6]);
+	/// assert_eq!(&bv, &0xFCu8.bits::<BigEndian>()[.. 6]);
 	/// bv.force_align();
 	/// assert_eq!(bv.as_slice(), &[0xFC]);
 	/// ```
@@ -1627,7 +1627,7 @@ where C: Cursor, T: BitStore {
 		}
 		let full = bits + head;
 		self.bitptr = unsafe { BitPtr::new_unchecked(data, 0.idx(), full) };
-		*self.as_mut_bitslice() <<= head;
+		*self.as_bits_mut() <<= head;
 		unsafe { self.bitptr.set_len(bits); }
 	}
 
@@ -1739,7 +1739,7 @@ where C: Cursor, T: BitStore {
 	/// assert!(!bs[10]);
 	/// ```
 	fn borrow(&self) -> &BitSlice<C, T> {
-		self.as_bitslice()
+		self.as_bits()
 	}
 }
 
@@ -1769,7 +1769,7 @@ where C: Cursor, T: BitStore {
 	/// assert!(bs[10]);
 	/// ```
 	fn borrow_mut(&mut self) -> &mut BitSlice<C, T> {
-		self.as_mut_bitslice()
+		self.as_bits_mut()
 	}
 }
 
@@ -1807,7 +1807,7 @@ where C: Cursor, T: BitStore {}
 impl<C, T> Ord for BitVec<C, T>
 where C: Cursor, T: BitStore {
 	fn cmp(&self, rhs: &Self) -> Ordering {
-		self.as_bitslice().cmp(rhs.as_bitslice())
+		self.as_bits().cmp(rhs.as_bits())
 	}
 }
 
@@ -1853,21 +1853,21 @@ where A: Cursor, B: BitStore, C: Cursor, D: BitStore {
 	/// assert_ne!(l.as_slice(), r.as_slice());
 	/// ```
 	fn eq(&self, rhs: &BitVec<C, D>) -> bool {
-		self.as_bitslice().eq(rhs.as_bitslice())
+		self.as_bits().eq(rhs.as_bits())
 	}
 }
 
 impl<A, B, C, D> PartialEq<BitSlice<C, D>> for BitVec<A, B>
 where A: Cursor, B: BitStore, C: Cursor, D: BitStore {
 	fn eq(&self, rhs: &BitSlice<C, D>) -> bool {
-		self.as_bitslice().eq(rhs)
+		self.as_bits().eq(rhs)
 	}
 }
 
 impl<A, B, C, D> PartialEq<&BitSlice<C, D>> for BitVec<A, B>
 where A: Cursor, B: BitStore, C: Cursor, D: BitStore {
 	fn eq(&self, rhs: &&BitSlice<C, D>) -> bool {
-		self.as_bitslice().eq(*rhs)
+		self.as_bits().eq(*rhs)
 	}
 }
 
@@ -1904,28 +1904,28 @@ where A: Cursor, B: BitStore, C: Cursor, D: BitStore {
 	/// assert!(b < c);
 	/// ```
 	fn partial_cmp(&self, rhs: &BitVec<C, D>) -> Option<Ordering> {
-		self.as_bitslice().partial_cmp(rhs.as_bitslice())
+		self.as_bits().partial_cmp(rhs.as_bits())
 	}
 }
 
 impl<A, B, C, D> PartialOrd<BitSlice<C, D>> for BitVec<A, B>
 where A: Cursor, B: BitStore, C: Cursor, D: BitStore {
 	fn partial_cmp(&self, rhs: &BitSlice<C, D>) -> Option<Ordering> {
-		self.as_bitslice().partial_cmp(rhs)
+		self.as_bits().partial_cmp(rhs)
 	}
 }
 
 impl<A, B, C, D> PartialOrd<&BitSlice<C, D>> for BitVec<A, B>
 where A: Cursor, B: BitStore, C: Cursor, D: BitStore {
 	fn partial_cmp(&self, rhs: &&BitSlice<C, D>) -> Option<Ordering> {
-		self.as_bitslice().partial_cmp(*rhs)
+		self.as_bits().partial_cmp(*rhs)
 	}
 }
 
 impl<C, T> AsMut<BitSlice<C, T>> for BitVec<C, T>
 where C: Cursor, T: BitStore {
 	fn as_mut(&mut self) -> &mut BitSlice<C, T> {
-		self.as_mut_bitslice()
+		self.as_bits_mut()
 	}
 }
 
@@ -1941,7 +1941,7 @@ where C: Cursor, T: BitStore {
 impl<C, T> AsRef<BitSlice<C, T>> for BitVec<C, T>
 where C: Cursor, T: BitStore {
 	fn as_ref(&self) -> &BitSlice<C, T> {
-		self.as_bitslice()
+		self.as_bits()
 	}
 }
 
@@ -2546,7 +2546,7 @@ where C: Cursor, T: BitStore {
 	/// assert!(bref[2]);
 	/// ```
 	fn deref(&self) -> &Self::Target {
-		self.as_bitslice()
+		self.as_bits()
 	}
 }
 
@@ -2569,7 +2569,7 @@ where C: Cursor, T: BitStore {
 	/// assert!(bref[5]);
 	/// ```
 	fn deref_mut(&mut self) -> &mut Self::Target {
-		self.as_mut_bitslice()
+		self.as_bits_mut()
 	}
 }
 
@@ -2618,7 +2618,7 @@ where C: Cursor, T: BitStore {
 	/// bv[1];
 	/// ```
 	fn index(&self, cursor: usize) -> &Self::Output {
-		&self.as_bitslice()[cursor]
+		&self.as_bits()[cursor]
 	}
 }
 
@@ -2627,14 +2627,14 @@ where C: Cursor, T: BitStore {
 	type Output = BitSlice<C, T>;
 
 	fn index(&self, range: Range<usize>) -> &Self::Output {
-		&self.as_bitslice()[range]
+		&self.as_bits()[range]
 	}
 }
 
 impl<C, T> IndexMut<Range<usize>> for BitVec<C, T>
 where C: Cursor, T: BitStore {
 	fn index_mut(&mut self, range: Range<usize>) -> &mut Self::Output {
-		&mut self.as_mut_bitslice()[range]
+		&mut self.as_bits_mut()[range]
 	}
 }
 
@@ -2643,14 +2643,14 @@ where C: Cursor, T: BitStore {
 	type Output = BitSlice<C, T>;
 
 	fn index(&self, range: RangeFrom<usize>) -> &Self::Output {
-		&self.as_bitslice()[range]
+		&self.as_bits()[range]
 	}
 }
 
 impl<C, T> IndexMut<RangeFrom<usize>> for BitVec<C, T>
 where C: Cursor, T: BitStore {
 	fn index_mut(&mut self, range: RangeFrom<usize>) -> &mut Self::Output {
-		&mut self.as_mut_bitslice()[range]
+		&mut self.as_bits_mut()[range]
 	}
 }
 
@@ -2659,14 +2659,14 @@ where C: Cursor, T: BitStore {
 	type Output = BitSlice<C, T>;
 
 	fn index(&self, _: RangeFull) -> &Self::Output {
-		self.as_bitslice()
+		self.as_bits()
 	}
 }
 
 impl<C, T> IndexMut<RangeFull> for BitVec<C, T>
 where C: Cursor, T: BitStore {
 	fn index_mut(&mut self, _: RangeFull) -> &mut Self::Output {
-		self.as_mut_bitslice()
+		self.as_bits_mut()
 	}
 }
 
@@ -2675,14 +2675,14 @@ where C: Cursor, T: BitStore {
 	type Output = BitSlice<C, T>;
 
 	fn index(&self, range: RangeInclusive<usize>) -> &Self::Output {
-		&self.as_bitslice()[range]
+		&self.as_bits()[range]
 	}
 }
 
 impl<C, T> IndexMut<RangeInclusive<usize>> for BitVec<C, T>
 where C: Cursor, T: BitStore {
 	fn index_mut(&mut self, range: RangeInclusive<usize>) -> &mut Self::Output {
-		&mut self.as_mut_bitslice()[range]
+		&mut self.as_bits_mut()[range]
 	}
 }
 
@@ -2691,14 +2691,14 @@ where C: Cursor, T: BitStore {
 	type Output = BitSlice<C, T>;
 
 	fn index(&self, range: RangeTo<usize>) -> &Self::Output {
-		&self.as_bitslice()[range]
+		&self.as_bits()[range]
 	}
 }
 
 impl<C, T> IndexMut<RangeTo<usize>> for BitVec<C, T>
 where C: Cursor, T: BitStore {
 	fn index_mut(&mut self, range: RangeTo<usize>) -> &mut Self::Output {
-		&mut self.as_mut_bitslice()[range]
+		&mut self.as_bits_mut()[range]
 	}
 }
 
@@ -2707,14 +2707,14 @@ where C: Cursor, T: BitStore {
 	type Output = BitSlice<C, T>;
 
 	fn index(&self, range: RangeToInclusive<usize>) -> &Self::Output {
-		&self.as_bitslice()[range]
+		&self.as_bits()[range]
 	}
 }
 
 impl<C, T> IndexMut<RangeToInclusive<usize>> for BitVec<C, T>
 where C: Cursor, T: BitStore {
 	fn index_mut(&mut self, range: RangeToInclusive<usize>) -> &mut Self::Output {
-		&mut self.as_mut_bitslice()[range]
+		&mut self.as_bits_mut()[range]
 	}
 }
 
