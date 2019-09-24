@@ -126,8 +126,8 @@ to and from `BitSlice`, and to/from `BitVec`.
 #[repr(C)]
 pub struct BitBox<C = BigEndian, T = u8>
 where C: Cursor, T: BitStore {
+	bitptr: BitPtr<T>,
 	_cursor: PhantomData<C>,
-	pointer: BitPtr<T>,
 }
 
 impl<C, T> BitBox<C, T>
@@ -149,7 +149,7 @@ where C: Cursor, T: BitStore {
 	pub fn empty() -> Self {
 		Self {
 			_cursor: PhantomData,
-			pointer: BitPtr::empty(),
+			bitptr: BitPtr::empty(),
 		}
 	}
 
@@ -265,10 +265,10 @@ where C: Cursor, T: BitStore {
 		);
 
 		let bs = BitSlice::<C, T>::from_slice(&boxed[..]);
-		let pointer = bs.bitptr();
+		let bitptr = bs.bitptr();
 		let out = Self {
 			_cursor: PhantomData,
-			pointer,
+			bitptr,
 		};
 		mem::forget(boxed);
 		out
@@ -296,7 +296,7 @@ where C: Cursor, T: BitStore {
 	/// assert_eq!(slice.len(), 2);
 	/// ```
 	pub fn into_boxed_slice(self) -> Box<[T]> {
-		let slice = self.pointer.as_mut_slice();
+		let slice = self.bitptr.as_mut_slice();
 		let (data, elts) = (slice.as_mut_ptr(), slice.len());
 		let out = unsafe { Vec::from_raw_parts(data, elts, elts) }
 			.into_boxed_slice();
@@ -311,9 +311,9 @@ where C: Cursor, T: BitStore {
 	///
 	/// # Parameters
 	///
-	/// - `pointer`: A `BitPtr<T>` describing a region of owned memory. This
-	///   must have previously produced by `BitBox` constructors; it is unsound
-	///   to even pass in `BitPtr<T>` values taken from `BitVec<C, T>` handles.
+	/// - `bitptr`: A `BitPtr<T>` describing a region of owned memory. This must
+	///   have previously produced by `BitBox` constructors; it is unsound to
+	///   even pass in `BitPtr<T>` values taken from `BitVec<C, T>` handles.
 	///
 	/// # Returns
 	///
@@ -330,10 +330,10 @@ where C: Cursor, T: BitStore {
 	/// allocator inconsistencies (arbitrary pointers).
 	///
 	/// [`BitBox::into_raw`]: #method.into_raw
-	pub unsafe fn from_raw(pointer: BitPtr<T>) -> Self {
+	pub unsafe fn from_raw(bitptr: BitPtr<T>) -> Self {
 		Self {
 			_cursor: PhantomData,
-			pointer,
+			bitptr,
 		}
 	}
 
@@ -347,7 +347,7 @@ where C: Cursor, T: BitStore {
 	///
 	/// [`BitBox::from_raw`]: #method.from_raw
 	pub unsafe fn into_raw(self) -> BitPtr<T> {
-		let out = self.bitptr();
+		let out = self.bitptr;
 		mem::forget(self);
 		out
 	}
@@ -374,7 +374,7 @@ where C: Cursor, T: BitStore {
 	///
 	/// [`BitBox::from_raw`]: #method.from_raw
 	pub fn leak<'a>(self) -> &'a mut BitSlice<C, T> {
-		let out = self.bitptr();
+		let out = self.bitptr;
 		mem::forget(self);
 		out.into_bitslice_mut()
 	}
@@ -409,7 +409,7 @@ where C: Cursor, T: BitStore {
 	/// An equivalent handle to the same data, with a new cursor parameter.
 	pub fn change_cursor<D>(self) -> BitBox<D, T>
 	where D: Cursor {
-		let bp = self.bitptr();
+		let bp = self.bitptr;
 		mem::forget(self);
 		unsafe { BitBox::from_raw(bp) }
 	}
@@ -424,7 +424,7 @@ where C: Cursor, T: BitStore {
 	///
 	/// The slice of bits behind the box.
 	pub fn as_bitslice(&self) -> &BitSlice<C, T> {
-		self.pointer.into_bitslice()
+		self.bitptr.into_bitslice()
 	}
 
 	/// Accesses the `BitSlice<C, T>` to which the `BitBox` refers.
@@ -437,20 +437,7 @@ where C: Cursor, T: BitStore {
 	///
 	/// The slice of bits behind the box.
 	pub fn as_mut_bitslice(&mut self) -> &mut BitSlice<C, T> {
-		self.pointer.into_bitslice_mut()
-	}
-
-	/// Gives read access to the `BitPtr<T>` structure powering the box.
-	///
-	/// # Parameters
-	///
-	/// - `&self`
-	///
-	/// # Returns
-	///
-	/// A copy of the interior `BitPtr<T>`.
-	pub(crate) fn bitptr(&self) -> BitPtr<T> {
-		self.pointer
+		self.bitptr.into_bitslice_mut()
 	}
 
 	/// Allows a function to access the `Box<[T]>` that the `BitBox` is using
@@ -501,12 +488,12 @@ impl<C, T> Clone for BitBox<C, T>
 where C: Cursor, T: BitStore {
 	fn clone(&self) -> Self {
 		let new_box = self.do_with_box(Clone::clone);
-		let mut pointer = self.pointer;
-		unsafe { pointer.set_pointer(new_box.as_ptr()); }
+		let mut bitptr = self.bitptr;
+		unsafe { bitptr.set_pointer(new_box.as_ptr()); }
 		mem::forget(new_box);
 		Self {
+			bitptr,
 			_cursor: PhantomData,
-			pointer,
 		}
 	}
 }
@@ -631,7 +618,7 @@ where C: Cursor, T: BitStore {
 	fn default() -> Self {
 		Self {
 			_cursor: PhantomData,
-			pointer: BitPtr::default(),
+			bitptr: BitPtr::default(),
 		}
 	}
 }
@@ -669,7 +656,7 @@ where C: Cursor, T: BitStore {
 
 	fn into_iter(self) -> Self::IntoIter {
 		IntoIter {
-			region: self.bitptr(),
+			region: self.bitptr,
 			bitbox: self,
 		}
 	}

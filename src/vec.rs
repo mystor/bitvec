@@ -334,12 +334,12 @@ is ***extremely binary incompatible*** with them. Attempting to treat
 #[repr(C)]
 pub struct BitVec<C = BigEndian, T = u8>
 where C: Cursor, T: BitStore {
-	/// Phantom `Cursor` member to satisfy the constraint checker.
-	_cursor: PhantomData<C>,
-	/// Slice pointer over the owned memory.
-	pointer: BitPtr<T>,
+	/// Bit-precision span pointer over the owned memory.
+	bitptr: BitPtr<T>,
 	/// The number of *elements* this vector has allocated.
 	capacity: usize,
+	/// Phantom `Cursor` member to satisfy the constraint checker.
+	_cursor: PhantomData<C>,
 }
 
 impl<C, T> BitVec<C, T>
@@ -364,7 +364,7 @@ where C: Cursor, T: BitStore {
 	pub fn new() -> Self {
 		Self {
 			_cursor: PhantomData,
-			pointer: BitPtr::empty(),
+			bitptr: BitPtr::empty(),
 			capacity: 0,
 		}
 	}
@@ -406,7 +406,7 @@ where C: Cursor, T: BitStore {
 		//  Take ownership of that region as an owned BitPtr
 		Self {
 			_cursor: PhantomData,
-			pointer: BitPtr::uninhabited(ptr),
+			bitptr: BitPtr::uninhabited(ptr),
 			capacity: cap,
 		}
 	}
@@ -502,12 +502,12 @@ where C: Cursor, T: BitStore {
 			BitPtr::<T>::MAX_ELTS,
 		);
 		let bs = BitSlice::<C, T>::from_slice(&vec[..]);
-		let pointer = bs.bitptr();
+		let bitptr = bs.bitptr();
 		let capacity = vec.capacity();
 		mem::forget(vec);
 		Self {
 			_cursor: PhantomData,
-			pointer,
+			bitptr,
 			capacity,
 		}
 	}
@@ -567,7 +567,7 @@ where C: Cursor, T: BitStore {
 	///
 	/// # Parameters
 	///
-	/// - `pointer`: The `BitPtr<T>` to use.
+	/// - `bitptr`: The `BitPtr<T>` to use.
 	/// - `capacity`: The number of `T` elements *allocated* in that slab.
 	///
 	/// # Returns
@@ -579,11 +579,11 @@ where C: Cursor, T: BitStore {
 	/// This is ***highly*** unsafe, due to the number of invariants that aren’t
 	/// checked:
 	///
-	/// - `pointer` needs to have been previously allocated by some allocating
+	/// - `bitptr` needs to have been previously allocated by some allocating
 	///   type.
-	/// - `pointer`’s `T` needs to have the same size ***and alignment*** as it
+	/// - `bitptr`’s `T` needs to have the same size ***and alignment*** as it
 	///   was initially allocated.
-	/// - `pointer`’s element count needs to be less than or equal to the
+	/// - `bitptr`’s element count needs to be less than or equal to the
 	///   original allocation capacity.
 	/// - `capacity` needs to be the original allocation capacity for the
 	///   vector. This is *not* the value produced by `.capacity()`.
@@ -594,14 +594,14 @@ where C: Cursor, T: BitStore {
 	/// `BitVec` whose `T` differs from the type used for the initial
 	/// allocation.
 	///
-	/// The ownership of `pointer` is effectively transferred to the
+	/// The ownership of `bitptr` is effectively transferred to the
 	/// `BitVec<C, T>` which may then deallocate, reallocate, or modify the
 	/// contents of the referent slice at will. Ensure that nothing else uses
 	/// the pointer after calling this function.
-	pub unsafe fn from_raw_parts(pointer: BitPtr<T>, capacity: usize) -> Self {
+	pub unsafe fn from_raw_parts(bitptr: BitPtr<T>, capacity: usize) -> Self {
 		Self {
 			_cursor: PhantomData,
-			pointer,
+			bitptr,
 			capacity,
 		}
 	}
@@ -667,7 +667,7 @@ where C: Cursor, T: BitStore {
 		);
 		//  Compute the number of additional elements needed to store the
 		//  requested number of additional bits.
-		let (e, _) = self.pointer.tail().span(additional);
+		let (e, _) = self.bitptr.tail().span(additional);
 		self.do_unto_vec(|v| v.reserve(e));
 	}
 
@@ -710,7 +710,7 @@ where C: Cursor, T: BitStore {
 		);
 		//  Compute the number of additional elements needed to store the
 		//  requested number of additional bits.
-		let (e, _) = self.pointer.tail().span(additional);
+		let (e, _) = self.bitptr.tail().span(additional);
 		self.do_unto_vec(|v| v.reserve_exact(e));
 	}
 
@@ -766,7 +766,7 @@ where C: Cursor, T: BitStore {
 	/// ```
 	pub fn truncate(&mut self, len: usize) {
 		if len < self.len() {
-			unsafe { self.bitptr_mut().set_len(len); }
+			unsafe { self.bitptr.set_len(len); }
 		}
 	}
 
@@ -791,7 +791,7 @@ where C: Cursor, T: BitStore {
 	/// let bs = bv.as_bitslice();
 	/// ```
 	pub fn as_bitslice(&self) -> &BitSlice<C, T> {
-		self.pointer.into_bitslice()
+		self.bitptr.into_bitslice()
 	}
 
 	/// Produces a mutable `BitSlice` containing the entire vector.
@@ -815,7 +815,7 @@ where C: Cursor, T: BitStore {
 	/// let bs = bv.as_mut_bitslice();
 	/// ```
 	pub fn as_mut_bitslice(&mut self) -> &mut BitSlice<C, T> {
-		self.pointer.into_bitslice_mut()
+		self.bitptr.into_bitslice_mut()
 	}
 
 	/// Accesses the underlying store as elements.
@@ -835,7 +835,7 @@ where C: Cursor, T: BitStore {
 	///
 	/// A slice over the raw elements underlying the vector.
 	pub fn as_slice(&self) -> &[T] {
-		self.pointer.as_slice()
+		self.bitptr.as_slice()
 	}
 
 	/// Accesses the underlying store as elements.
@@ -857,7 +857,7 @@ where C: Cursor, T: BitStore {
 	///
 	/// A mutable slice over the raw elements underlying the vector.
 	pub fn as_mut_slice(&mut self) -> &mut [T] {
-		self.pointer.as_mut_slice()
+		self.bitptr.as_mut_slice()
 	}
 
 	/// Sets the length of the vector.
@@ -904,7 +904,7 @@ where C: Cursor, T: BitStore {
 			len,
 			self.capacity(),
 		);
-		self.bitptr_mut().set_len(len);
+		self.bitptr.set_len(len);
 	}
 
 	/// Removes a bit from the vector and returns it.
@@ -1086,12 +1086,12 @@ where C: Cursor, T: BitStore {
 		);
 		//  If self is empty *or* tail is at the back edge of an element, push
 		//  an element onto the vector.
-		if self.is_empty() || *self.pointer.tail() == T::BITS {
+		if self.is_empty() || *self.bitptr.tail() == T::BITS {
 			self.do_unto_vec(|v| v.push(0.into()));
 		}
 		//  At this point, it is always safe to increment the tail, and then
 		//  write to the newly live bit.
-		unsafe { self.bitptr_mut().incr_tail() };
+		unsafe { self.bitptr.incr_tail() };
 		self.set(len, value);
 	}
 
@@ -1126,7 +1126,7 @@ where C: Cursor, T: BitStore {
 			return None;
 		}
 		let out = self[self.len() - 1];
-		unsafe { self.bitptr_mut().decr_tail() };
+		unsafe { self.bitptr.decr_tail() };
 		Some(out)
 	}
 
@@ -1301,7 +1301,7 @@ where C: Cursor, T: BitStore {
 		assert!(at <= len, "Index out of bounds: {} is beyond {}", at, len);
 		match at {
 			0 => unsafe {
-				let out = Self::from_raw_parts(self.pointer, self.capacity);
+				let out = Self::from_raw_parts(self.bitptr, self.capacity);
 				ptr::write(self, Self::new());
 				out
 			},
@@ -1557,7 +1557,7 @@ where C: Cursor, T: BitStore {
 	/// the desired cursor type.
 	pub fn change_cursor<D>(self) -> BitVec<D, T>
 	where D: Cursor {
-		let (bp, cap) = (self.pointer, self.capacity);
+		let (bp, cap) = (self.bitptr, self.capacity);
 		mem::forget(self);
 		unsafe { BitVec::from_raw_parts(bp, cap) }
 	}
@@ -1572,10 +1572,10 @@ where C: Cursor, T: BitStore {
 	///
 	/// Itself, with its size frozen and ungrowable.
 	pub fn into_boxed_bitslice(self) -> BitBox<C, T> {
-		let pointer = self.pointer;
+		let bitptr = self.bitptr;
 		//  Convert the Vec allocation into a Box<[T]> allocation
 		mem::forget(self.into_boxed_slice());
-		unsafe { BitBox::from_raw(pointer) }
+		unsafe { BitBox::from_raw(bitptr) }
 	}
 
 	/// Degrades a `BitVec` to a standard boxed slice.
@@ -1601,60 +1601,13 @@ where C: Cursor, T: BitStore {
 	///
 	/// The plain vector underlying the `BitVec`.
 	pub fn into_vec(self) -> Vec<T> {
-		let slice = self.pointer.as_mut_slice();
+		let data_ptr = self.bitptr.pointer().w();
+		let elements = self.bitptr.elements();
 		let out = unsafe {
-			Vec::from_raw_parts(slice.as_mut_ptr(), slice.len(), self.capacity)
+			Vec::from_raw_parts(data_ptr, elements, self.capacity)
 		};
 		mem::forget(self);
 		out
-	}
-
-	/// Gets the raw `BitPtr` powering the vector.
-	///
-	/// # Parameters
-	///
-	/// - `&self`
-	///
-	/// # Returns
-	///
-	/// The underlying `BitPtr` for the vector.
-	///
-	/// # Notes
-	///
-	/// The `BitPtr<T>` return type is opaque, and not exported by the crate.
-	/// Users are not able to use it in any way except to construct another
-	/// `BitVec<_, T>` from it. It is not possible for user code to even express
-	/// the name of the type.
-	///
-	/// ```rust
-	/// use bitvec::prelude::*;
-	/// use std::mem;
-	///
-	/// let bv = bitvec![1; 10];
-	/// let bitptr = bv.bitptr();
-	/// let cap = bv.capacity();
-	/// mem::forget(bv);
-	/// let bv2 = unsafe {
-	///   BitVec::<BigEndian, _>::from_raw_parts(bitptr, cap)
-	/// };
-	/// assert_eq!(bv2.len(), 10);
-	/// assert!(bv2[9]);
-	/// ```
-	pub fn bitptr(&self) -> BitPtr<T> {
-		self.pointer
-	}
-
-	/// Gives write access to the `BitPtr` structure powering the vector.
-	///
-	/// # Parameters
-	///
-	/// - `&mut self`
-	///
-	/// # Returns
-	///
-	/// A mutable reference to the interior `BitPtr`.
-	pub(crate) fn bitptr_mut(&mut self) -> &mut BitPtr<T> {
-		&mut self.pointer
 	}
 
 	/// Permits a function to modify the `Vec<T>` underneath a `BitVec<_, T>`.
@@ -1677,7 +1630,7 @@ where C: Cursor, T: BitStore {
 	/// - `R`: The return value from the called function or closure.
 	fn do_unto_vec<F, R>(&mut self, func: F) -> R
 	where F: FnOnce(&mut Vec<T>) -> R {
-		let slice = self.pointer.as_mut_slice();
+		let slice = self.bitptr.as_mut_slice();
 		let mut v = unsafe {
 			Vec::from_raw_parts(slice.as_mut_ptr(), slice.len(), self.capacity)
 		};
@@ -1685,8 +1638,8 @@ where C: Cursor, T: BitStore {
 		//  The only change is that the pointer might relocate. The region data
 		//  will remain untouched. Vec guarantees it will never produce an
 		//  invalid pointer.
-		unsafe { self.bitptr_mut().set_pointer(v.as_ptr()); }
-		// self.pointer = unsafe { BitPtr::new_unchecked(v.as_ptr(), e, h, t) };
+		unsafe { self.bitptr.set_pointer(v.as_ptr()); }
+		// self.bitptr = unsafe { BitPtr::new_unchecked(v.as_ptr(), e, h, t) };
 		self.capacity = v.capacity();
 		mem::forget(v);
 		out
@@ -1718,9 +1671,13 @@ where C: Cursor, T: BitStore {
 	/// This produces an empty `Vec<T>` if the `BitVec<_, T>` is empty.
 	fn do_with_vec<F, R>(&self, func: F) -> R
 	where F: FnOnce(&Vec<T>) -> R {
-		let slice = self.pointer.as_mut_slice();
+		let slice = self.bitptr.as_slice();
 		let v: Vec<T> = unsafe {
-			Vec::from_raw_parts(slice.as_mut_ptr(), slice.len(), self.capacity)
+			Vec::from_raw_parts(
+				slice.as_ptr() as *mut T,
+				slice.len(),
+				self.capacity,
+			)
 		};
 		let out = func(&v);
 		mem::forget(v);
@@ -1791,18 +1748,18 @@ where C: Cursor, T: BitStore {
 	fn clone(&self) -> Self {
 		let new_vec = self.do_with_vec(Clone::clone);
 		let capacity = new_vec.capacity();
-		let mut pointer = self.pointer;
-		unsafe { pointer.set_pointer(new_vec.as_ptr()); }
+		let mut bitptr = self.bitptr;
+		unsafe { bitptr.set_pointer(new_vec.as_ptr()); }
 		mem::forget(new_vec);
 		Self {
 			_cursor: PhantomData,
-			pointer, // unsafe { BitPtr::new_unchecked(ptr, e, h, t) },
+			bitptr, // unsafe { BitPtr::new_unchecked(ptr, e, h, t) },
 			capacity,
 		}
 	}
 
 	fn clone_from(&mut self, other: &Self) {
-		let slice = other.pointer.as_slice();
+		let slice = other.bitptr.as_slice();
 		self.clear();
 		//  Copy the other data region into the underlying vector, then grab its
 		//  pointer and capacity values.
@@ -1811,11 +1768,11 @@ where C: Cursor, T: BitStore {
 			(v.as_ptr(), v.capacity())
 		});
 		//  Copy the other `BitPtr<T>`,
-		let mut pointer = other.pointer;
+		let mut bitptr = other.bitptr;
 		//  Then set it to aim at the copied pointer.
-		unsafe { pointer.set_pointer(ptr); }
+		unsafe { bitptr.set_pointer(ptr); }
 		//  And set the new pointer/capacity.
-		self.pointer = pointer;
+		self.bitptr = bitptr;
 		self.capacity = capacity;
 	}
 }
@@ -2242,7 +2199,7 @@ where C: Cursor, T: BitStore {
 	/// ```
 	fn into_iter(self) -> Self::IntoIter {
 		IntoIter {
-			region: self.pointer,
+			region: self.bitptr,
 			bitvec: self,
 		}
 	}
@@ -2597,7 +2554,7 @@ impl<C, T> Drop for BitVec<C, T>
 where C: Cursor, T: BitStore {
 	/// Rebuild the interior `Vec` and let it run the deallocator.
 	fn drop(&mut self) {
-		let bp = mem::replace(&mut self.pointer, BitPtr::empty());
+		let bp = mem::replace(&mut self.bitptr, BitPtr::empty());
 		//  Build a Vec<T> out of the elements, and run its destructor.
 		let (ptr, cap) = (bp.pointer(), self.capacity);
 		drop(unsafe { Vec::from_raw_parts(ptr.w(), 0, cap) });

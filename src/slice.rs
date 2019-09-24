@@ -4557,8 +4557,7 @@ where C: Cursor, T: 'a + BitStore {
 	/// # Returns
 	///
 	/// The `BitPtr` representation of the remaining slice.
-	//  The linter is incorrect; this method is absolutely used.
-	#[allow(dead_code)]
+	#[cfg(feature = "alloc")]
 	pub(crate) fn bitptr(&self) -> BitPtr<T> {
 		self.inner.bitptr()
 	}
