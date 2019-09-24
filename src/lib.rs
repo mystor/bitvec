@@ -54,6 +54,7 @@ mod macros;
 pub mod bits;
 pub mod cursor;
 mod domain;
+mod indices;
 mod pointer;
 pub mod prelude;
 pub mod slice;

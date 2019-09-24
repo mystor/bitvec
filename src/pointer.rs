@@ -9,11 +9,13 @@ work.
 use crate::{
 	cursor::Cursor,
 	domain::*,
-	slice::BitSlice,
-	store::{
+	indices::{
 		BitIdx,
-		BitStore,
+		IntoBitIdx,
+		TailIdx,
 	},
+	slice::BitSlice,
+	store::BitStore,
 };
 
 use core::{
@@ -402,10 +404,10 @@ where T: BitStore {
 	/// governable in the caller’s context.
 	pub(crate) fn new(
 		data: impl Into<Pointer<T>>,
-		head: impl Into<BitIdx>,
+		head: BitIdx<T>,
 		bits: usize,
 	) -> Self {
-		let (data, head) = (data.into(), head.into());
+		let data = data.into();
 
 		//  Null pointers become the empty slice.
 		if data.r().is_null() {
@@ -427,14 +429,7 @@ where T: BitStore {
 			Self::MAX_BITS,
 		);
 
-		assert!(
-			head.is_valid::<T>(),
-			"BitPtr head index cannot be {}; the valid domain is 0 .. {}",
-			head,
-			T::BITS,
-		);
-
-		let elts = head.span::<T>(bits).0;
+		let elts = head.span(bits).0;
 		let tail = data.r().wrapping_add(elts);
 		assert!(
 			tail >= data.r(),
@@ -469,10 +464,10 @@ where T: BitStore {
 	/// [`::new`]: #method.new
 	pub(crate) unsafe fn new_unchecked(
 		data: impl Into<Pointer<T>>,
-		head: impl Into<BitIdx>,
+		head: BitIdx<T>,
 		bits: usize,
 	) -> Self {
-		let (data, head) = (data.into(), *head.into() as usize);
+		let (data, head) = (data.into(), *head as usize);
 
 		let ptr_data = data.u() & Self::PTR_DATA_MASK;
 		let ptr_head = head >> Self::LEN_HEAD_BITS;
@@ -545,11 +540,11 @@ where T: BitStore {
 	/// A `BitIdx` that is the index of the first live bit in the first element.
 	/// This will be in the domain `0 .. T::BITS`.
 	#[inline]
-	pub fn head(&self) -> BitIdx {
+	pub fn head(&self) -> BitIdx<T> {
 		let ptr = self.ptr.as_ptr() as usize;
 		let ptr_head = (ptr & Self::PTR_HEAD_MASK) << Self::LEN_HEAD_BITS;
 		let len_head = self.len & Self::LEN_HEAD_MASK;
-		((ptr_head | len_head) as u8).into()
+		((ptr_head | len_head) as u8).idx()
 	}
 
 	/// Counts how many bits are in the domain of a `BitPtr` slice.
@@ -596,7 +591,7 @@ where T: BitStore {
 	/// - `.1: BitIdx`: The index of the first live bit in the bit region.
 	/// - `.2: usize`: The number of live bits in the bit region.
 	#[inline]
-	pub(crate) fn raw_parts(&self) -> (Pointer<T>, BitIdx, usize) {
+	pub(crate) fn raw_parts(&self) -> (Pointer<T>, BitIdx<T>, usize) {
 		(self.pointer(), self.head(), self.len())
 	}
 
@@ -615,7 +610,7 @@ where T: BitStore {
 	/// This size must be valid in the user’s memory model and allocation
 	/// regime.
 	pub fn elements(&self) -> usize {
-		self.head().span::<T>(self.len()).0
+		self.head().span(self.len()).0
 	}
 
 	/// Extracts the element cursor of the first dead bit *after* the tail bit.
@@ -626,10 +621,10 @@ where T: BitStore {
 	///
 	/// # Returns
 	///
-	/// A `BitIdx` that is the index of the first dead bit after the last live
+	/// A `TailIdx` that is the index of the first dead bit after the last live
 	/// bit in the last element. This will be in the domain `1 ..= T::BITS`.
 	#[inline]
-	pub fn tail(&self) -> BitIdx {
+	pub fn tail(&self) -> TailIdx<T> {
 		/*
 		 * This function is one of the most-used in the library. As such, its
 		 * implementation is written in a straight linear style. The compiler is
@@ -649,7 +644,7 @@ where T: BitStore {
 		//  If the tail’s bit pattern is zero, wrap it to the maximal. This
 		//  upshifts `1` (pattern is zero) or `0` (pattern is not), then
 		//  sets the upshift bit on the pattern.
-		((((tail == 0) as u8) << T::INDX) | tail as u8).into()
+		((((tail == 0) as u8) << T::INDX) | tail as u8).tail_idx()
 	}
 
 	/// Checks if the pointer represents the empty slice.
@@ -780,7 +775,7 @@ where T: BitStore {
 		if bits == 0 {
 			return;
 		}
-		let (head, wrap) = head.incr::<T>();
+		let (head, wrap) = head.incr();
 		*self = Self::new_unchecked(
 			data.r().offset(wrap as isize),
 			head,
@@ -809,7 +804,7 @@ where T: BitStore {
 		if bits == 0 {
 			return;
 		}
-		let (head, wrap) = head.decr::<T>();
+		let (head, wrap) = head.decr();
 		*self = Self::new_unchecked(
 			data.r().offset(-(wrap as isize)),
 			head,
@@ -987,8 +982,8 @@ where T: BitStore {
 			}
 		}
 
-		struct BinAddr<T: BitStore>(BitIdx, PhantomData<T>);
-		impl<T: BitStore>  Debug for BinAddr<T> {
+		struct BinAddr<T: BitStore>(BitIdx<T>);
+		impl<T: BitStore> Debug for BinAddr<T> {
 			fn fmt(&self, f: &mut Formatter) -> fmt::Result {
 				write!(f, "0b{:0>1$b}", *self.0, T::INDX as usize)
 			}
@@ -997,7 +992,7 @@ where T: BitStore {
 		write!(f, "BitPtr<{}>", T::TYPENAME)?;
 		f.debug_struct("")
 			.field("data", &HexPtr::<T>(self.pointer().r()))
-			.field("head", &BinAddr::<T>(self.head(), PhantomData))
+			.field("head", &BinAddr::<T>(self.head()))
 			.field("bits", &self.len())
 			.finish()
 	}
@@ -1046,7 +1041,7 @@ mod tests {
 	#[test]
 	fn ctors() {
 		let data: [u32; 4] = [0x756c6153, 0x2c6e6f74, 0x6e6f6d20, 0x00216f64];
-		let bp = BitPtr::<u32>::new(&data as *const u32, 0, 32 * 4);
+		let bp = BitPtr::<u32>::new(&data as *const u32, 0.idx(), 32 * 4);
 		assert_eq!(bp.pointer().r(), &data as *const u32);
 		assert_eq!(bp.elements(), 4);
 		assert_eq!(*bp.head(), 0);
@@ -1057,7 +1052,7 @@ mod tests {
 	fn empty() {
 		let data = [0u8; 4];
 		//  anything with 0 bits is unconditionally empty
-		let bp = BitPtr::<u8>::new(&data as *const u8, 2, 0);
+		let bp = BitPtr::<u8>::new(&data as *const u8, 2.idx(), 0);
 
 		assert!(bp.is_empty());
 		assert_eq!(*bp.head(), 2);
@@ -1067,6 +1062,6 @@ mod tests {
 	#[test]
 	#[should_panic]
 	fn overfull() {
-		BitPtr::<u32>::new(8 as *const u32, 1, BitPtr::<u32>::MAX_BITS + 1);
+		BitPtr::<u32>::new(8 as *const u32, 1.idx(), BitPtr::<u32>::MAX_BITS + 1);
 	}
 }

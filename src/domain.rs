@@ -8,11 +8,12 @@ handle operations.
 !*/
 
 use crate::{
-	pointer::BitPtr,
-	store::{
+	indices::{
 		BitIdx,
-		BitStore,
+		TailIdx,
 	},
+	pointer::BitPtr,
+	store::BitStore,
 };
 
 /// Variant markers for the kinds of domains.
@@ -51,7 +52,7 @@ impl<T> From<&BitPtr<T>> for BitDomainKind
 where T: BitStore {
 	fn from(bitptr: &BitPtr<T>) -> Self {
 		let h = bitptr.head();
-		let (e, t) = h.span::<T>(bitptr.len());
+		let (e, t) = h.span(bitptr.len());
 		let w = T::BITS;
 
 		match (*h, e, *t) {
@@ -93,16 +94,11 @@ where T: 'a + BitStore {
 	/// - `.1`: reference to the element contatining the domain
 	/// - `.2`: index of the first dead bit after the domain
 	///
-	/// # Invariants
-	///
-	/// - `.0` must satisfy `BitIdx::is_valid::<T>`
-	/// - `.2` must satisfy `BitIdx::is_valid_tail::<T>`
-	///
 	/// # Behavior
 	///
 	/// This variant is produced when the domain is contained entirely inside
 	/// one element, and does not reach to either edge.
-	Minor(BitIdx, &'a T, BitIdx),
+	Minor(BitIdx<T>, &'a T, TailIdx<T>),
 	/// Multpile element domain which does not reach the edge of its edge
 	/// elements.
 	///
@@ -115,17 +111,12 @@ where T: 'a + BitStore {
 	/// - `.3`: reference to the partial tail edge element
 	/// - `.4`: index of the first dead bit after the domain
 	///
-	/// # Invariants
-	///
-	/// - `.0` must satisfy `BitIdx::is_valid::<T>`
-	/// - `.4` must satisfy `BitIdx::is_valid_tail::<T>`
-	///
 	/// # Behavior
 	///
 	/// This variant is produced when the domain uses at least two elements, and
 	/// reaches neither the head edge of the head element nor the tail edge of
 	/// the tail element.
-	Major(BitIdx, &'a T, &'a [T], &'a T, BitIdx),
+	Major(BitIdx<T>, &'a T, &'a [T], &'a T, TailIdx<T>),
 	/// Domain with a partial head cursor and fully extended tail cursor.
 	///
 	/// # Members
@@ -134,15 +125,11 @@ where T: 'a + BitStore {
 	/// - `.1`: reference to the partial head element
 	/// - `.2`: reference to the full elements of the domain. This may be empty.
 	///
-	/// # Invariants
-	///
-	/// - `.0` must satisfy `BitIdx::is_valid::<T>`
-	///
 	/// # Behavior
 	///
 	/// This variant is produced when the domain’s head cursor is past `0`, and
 	/// its tail cursor is exactly `T::BITS`.
-	PartialHead(BitIdx, &'a T, &'a [T]),
+	PartialHead(BitIdx<T>, &'a T, &'a [T]),
 	/// Domain with a fully extended head cursor and partial tail cursor.
 	///
 	/// # Members
@@ -151,15 +138,11 @@ where T: 'a + BitStore {
 	/// - `.1`: reference to the partial tail element
 	/// - `.2`: index of the first dead bit after the live bits in the tail
 	///
-	/// # Invariants
-	///
-	/// - `.2` must satisfy `BitIdx::is_valid_tail::<T>`
-	///
 	/// # Behavior
 	///
 	/// This variant is produced when the domain’s head cursor is exactly `0`,
 	/// and its tail cursor is less than `T::BITS`.
-	PartialTail(&'a [T], &'a T, BitIdx),
+	PartialTail(&'a [T], &'a T, TailIdx<T>),
 	/// Domain which fully spans its containing elements.
 	///
 	/// # Members
@@ -218,16 +201,11 @@ where T: 'a + BitStore {
 	/// - `.1`: mutable reference to the element contatining the domain
 	/// - `.2`: index of the first dead bit after the domain
 	///
-	/// # Invariants
-	///
-	/// - `.0` must satisfy `BitIdx::is_valid::<T>`
-	/// - `.2` must satisfy `BitIdx::is_valid_tail::<T>`
-	///
 	/// # Behavior
 	///
 	/// This variant is produced when the domain is contained entirely inside
 	/// one element, and does not reach to either edge.
-	Minor(BitIdx, &'a mut T, BitIdx),
+	Minor(BitIdx<T>, &'a mut T, TailIdx<T>),
 	/// Multpile element domain which does not reach the edge of its edge
 	/// elements.
 	///
@@ -240,17 +218,12 @@ where T: 'a + BitStore {
 	/// - `.3`: mutable reference to the partial tail edge element
 	/// - `.4`: index of the first dead bit after the domain
 	///
-	/// # Invariants
-	///
-	/// - `.0` must satisfy `BitIdx::is_valid::<T>`
-	/// - `.4` must satisfy `BitIdx::is_valid_tail::<T>`
-	///
 	/// # Behavior
 	///
 	/// This variant is produced when the domain uses at least two elements, and
 	/// reaches neither the head edge of the head element nor the tail edge of
 	/// the tail element.
-	Major(BitIdx, &'a mut T, &'a mut [T], &'a mut T, BitIdx),
+	Major(BitIdx<T>, &'a mut T, &'a mut [T], &'a mut T, TailIdx<T>),
 	/// Domain with a partial head cursor and fully extended tail cursor.
 	///
 	/// # Members
@@ -260,15 +233,11 @@ where T: 'a + BitStore {
 	/// - `.2`: mutable reference to the full elements of the domain. This may
 	///   be empty.
 	///
-	/// # Invariants
-	///
-	/// - `.0` must satisfy `BitIdx::is_valid::<T>`
-	///
 	/// # Behavior
 	///
 	/// This variant is produced when the domain’s head cursor is past `0`, and
 	/// its tail cursor is exactly `T::BITS`.
-	PartialHead(BitIdx, &'a mut T, &'a mut [T]),
+	PartialHead(BitIdx<T>, &'a mut T, &'a mut [T]),
 	/// Domain with a fully extended head cursor and partial tail cursor.
 	///
 	/// # Members
@@ -278,15 +247,11 @@ where T: 'a + BitStore {
 	/// - `.1`: mutable reference to the partial tail element
 	/// - `.2`: index of the first dead bit after the live bits in the tail
 	///
-	/// # Invariants
-	///
-	/// - `.2` must satisfy `BitIdx::is_valid_tail::<T>`
-	///
 	/// # Behavior
 	///
 	/// This variant is produced when the domain’s head cursor is exactly `0`,
 	/// and its tail cursor is less than `T::BITS`.
-	PartialTail(&'a mut [T], &'a mut T, BitIdx),
+	PartialTail(&'a mut [T], &'a mut T, TailIdx<T>),
 	/// Domain which fully spans its containing elements.
 	///
 	/// # Members
@@ -339,11 +304,12 @@ where T: 'a + BitStore {
 #[cfg(all(test, feature = "testing"))]
 mod tests {
 	use super::*;
+	use crate::indices::IntoBitIdx;
 
 	#[test]
 	fn minor() {
 		let data: u8 = 0u8;
-		let bp = BitPtr::new(&data, 1, 6);
+		let bp = BitPtr::new(&data, 1u8.idx(), 6);
 
 		assert!(bp.domain_kind().is_minor());
 	}
@@ -351,7 +317,7 @@ mod tests {
 	#[test]
 	fn major() {
 		let data: &[u16] = &[0u16, !0u16];
-		let bp = BitPtr::new(&data[0], 1, 28);
+		let bp = BitPtr::new(&data[0], 1u8.idx(), 28);
 
 		assert!(bp.domain_kind().is_major());
 	}
@@ -359,12 +325,12 @@ mod tests {
 	#[test]
 	fn partial_head() {
 		let data: u32 = 0u32;
-		let bp = BitPtr::new(&data, 4, 28);
+		let bp = BitPtr::new(&data, 4u8.idx(), 28);
 
 		assert!(bp.domain_kind().is_partial_head());
 
 		let data: &[u32] = &[0u32, !0u32];
-		let bp = BitPtr::new(&data[0], 4, 60);
+		let bp = BitPtr::new(&data[0], 4u8.idx(), 60);
 
 		assert!(bp.domain_kind().is_partial_head());
 	}
@@ -372,12 +338,12 @@ mod tests {
 	#[test]
 	fn partial_tail() {
 		let data: u64 = 0u64;
-		let bp = BitPtr::new(&data, 0, 60);
+		let bp = BitPtr::new(&data, 0u8.idx(), 60);
 
 		assert!(bp.domain_kind().is_partial_tail());
 
 		let data: &[u64] = &[0u64, !0u64];
-		let bp = BitPtr::new(&data[0], 0, 124);
+		let bp = BitPtr::new(&data[0], 0u8.idx(), 124);
 
 		assert!(bp.domain_kind().is_partial_tail());
 	}
@@ -385,12 +351,12 @@ mod tests {
 	#[test]
 	fn spanning() {
 		let data: u8 = 0u8;
-		let bp = BitPtr::new(&data, 0, 8);
+		let bp = BitPtr::new(&data, 0u8.idx(), 8);
 
 		assert!(bp.domain_kind().is_spanning());
 
 		let data: &[u16] = &[0u16, !0u16];
-		let bp = BitPtr::new(&data[0], 0, 32);
+		let bp = BitPtr::new(&data[0], 0u8.idx(), 32);
 
 		assert!(bp.domain_kind().is_spanning());
 	}
