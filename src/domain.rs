@@ -173,9 +173,9 @@ where T: 'a + BitStore {
 	}
 }
 
-impl<'a, T> From<BitPtr<T>> for BitDomain<'a, T>
+impl<'a, T> From<&BitPtr<T>> for BitDomain<'a, T>
 where T: 'a + BitStore {
-	fn from(bitptr: BitPtr<T>) -> Self {
+	fn from(bitptr: &BitPtr<T>) -> Self {
 		BitDomainMut::from(bitptr).into()
 	}
 }
@@ -266,9 +266,9 @@ where T: 'a + BitStore {
 	Spanning(&'a mut [T]),
 }
 
-impl<'a, T> From<BitPtr<T>> for BitDomainMut<'a, T>
+impl<'a, T> From<&BitPtr<T>> for BitDomainMut<'a, T>
 where T: 'a + BitStore {
-	fn from(bitptr: BitPtr<T>) -> Self {
+	fn from(bitptr: &BitPtr<T>) -> Self {
 		use BitDomainKind as Bdk;
 		let (h, t) = (bitptr.head(), bitptr.tail());
 		let data = bitptr.as_access_slice();

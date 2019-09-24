@@ -702,6 +702,13 @@ where T: BitStore {
 
 	/// Accesses the element slice behind the pointer as a Rust slice.
 	///
+	/// # Safety
+	///
+	/// This method must only be called when doing so will not result in the
+	/// production of aliased references. If any references to the described
+	/// memory exist that are not routed through `BitPtr`, construction of this
+	/// reference may induce undefined behavior.
+	///
 	/// # Parameters
 	///
 	/// - `&self`
@@ -718,6 +725,13 @@ where T: BitStore {
 	}
 
 	/// Accesses the element slice behind the pointer as a Rust mutable slice.
+	///
+	/// # Safety
+	///
+	/// This method must only be called when doing so will not result in the
+	/// production of aliased references. If any references to the described
+	/// memory exist that are not routed through `BitPtr`, construction of this
+	/// reference may induce undefined behavior.
 	///
 	/// # Parameters
 	///
@@ -751,8 +765,8 @@ where T: BitStore {
 	/// governed memory, without producing a potentially-aliased `&mut [T]`
 	/// reference.
 	///
-	/// [`BitStore::Access`]: crate::store::BitStore::Access
-	pub(crate) fn as_access_slice<'a>(&self) -> &'a [<T as BitStore>::Access] {
+	/// [`BitStore::Access`]: ../store/trait.BitStore.html#associatedtype.Access
+	pub(crate) fn as_access_slice<'a>(&self) -> &'a [T::Access] {
 		unsafe { slice::from_raw_parts(self.pointer().a(), self.elements()) }
 	}
 
@@ -779,8 +793,8 @@ where T: BitStore {
 	///
 	/// An enum containing the logical components of the domain governed by
 	/// `self`.
-	pub fn domain(&self) -> BitDomain<T> {
-		(*self).into()
+	pub fn domain<'a>(&self) -> BitDomain<'a, T> {
+		self.into()
 	}
 
 	/// Gets the domain for the region the pointer describes.
@@ -793,8 +807,8 @@ where T: BitStore {
 	///
 	/// An enum containing the logical components of the domain governed by
 	/// `self`.
-	pub fn domain_mut(&self) -> BitDomainMut<T> {
-		(*self).into()
+	pub fn domain_mut<'a>(&self) -> BitDomainMut<'a, T> {
+		self.into()
 	}
 
 	/// Moves the `head` cursor upwards by one.
