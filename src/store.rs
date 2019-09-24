@@ -111,7 +111,7 @@ pub trait BitStore:
 	///
 	/// - `place`: A bit index in the element, from `0` to `Self::MASK`. The bit
 	///   under this index will be set according to `value`.
-	/// - `value`: A Boolean value, which sets the bit on `true` and unsets it
+	/// - `value`: A Boolean value, which sets the bit on `true` and clears it
 	///   on `false`.
 	///
 	/// # Type Parameters
