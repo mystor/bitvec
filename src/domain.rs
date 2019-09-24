@@ -34,19 +34,18 @@ pub enum BitDomainKind {
 	Spanning,
 }
 
+#[cfg(test)]
 impl BitDomainKind {
-	/// Tests if the variant is `Empty`.
-	pub fn is_empty(self)        -> bool { self == BitDomainKind::Empty       }
 	/// Tests if the variant is `Minor`.
-	pub fn is_minor(self)        -> bool { self == BitDomainKind::Minor       }
+	pub(crate) fn is_minor(self)        -> bool { self == BitDomainKind::Minor       }
 	/// Tests if the variant is `Major`.
-	pub fn is_major(self)        -> bool { self == BitDomainKind::Major       }
+	pub(crate) fn is_major(self)        -> bool { self == BitDomainKind::Major       }
 	/// Tests if the variant is `PartialHead`.
-	pub fn is_partial_head(self) -> bool { self == BitDomainKind::PartialHead }
+	pub(crate) fn is_partial_head(self) -> bool { self == BitDomainKind::PartialHead }
 	/// Tests if the variant is `PartialTail`.
-	pub fn is_partial_tail(self) -> bool { self == BitDomainKind::PartialTail }
+	pub(crate) fn is_partial_tail(self) -> bool { self == BitDomainKind::PartialTail }
 	/// Tests if the variant is `Spanning`.
-	pub fn is_spanning(self)     -> bool { self == BitDomainKind::Spanning    }
+	pub(crate) fn is_spanning(self)     -> bool { self == BitDomainKind::Spanning    }
 }
 
 impl<T> From<&BitPtr<T>> for BitDomainKind
@@ -155,6 +154,18 @@ where T: 'a + BitStore {
 	/// This variant is produced when the all elements in the domain are fully
 	/// populated.
 	Spanning(&'a [T]),
+}
+
+impl<'a, T> BitDomain<'a, T>
+where T: 'a + BitStore {
+	pub(crate) fn is_spanning(&self) -> bool {
+		if let BitDomain::Spanning(_) = self {
+			true
+		}
+		else {
+			false
+		}
+	}
 }
 
 impl<'a, T> From<BitDomainMut<'a, T>> for BitDomain<'a, T>

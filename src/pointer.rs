@@ -296,36 +296,32 @@ where T: BitStore {
 
 impl<T> BitPtr<T>
 where T: BitStore {
-	/// The number of high bits in `self.ptr` that are actually the address of
-	/// the zeroth `T`.
-	pub const PTR_DATA_BITS: usize = PTR_BITS - Self::PTR_HEAD_BITS;
-
 	/// Marks the bits of `self.ptr` that are the `data` section.
-	pub const PTR_DATA_MASK: usize = !Self::PTR_HEAD_MASK;
+	pub(crate) const PTR_DATA_MASK: usize = !Self::PTR_HEAD_MASK;
 
 	/// The number of low bits in `self.ptr` that are the high bits of the head
 	/// `BitIdx` cursor.
-	pub const PTR_HEAD_BITS: usize = T::INDX as usize - Self::LEN_HEAD_BITS;
+	pub(crate) const PTR_HEAD_BITS: usize = T::INDX as usize - Self::LEN_HEAD_BITS;
 
 	/// Marks the bits of `self.ptr` that are the `head` section.
-	pub const PTR_HEAD_MASK: usize = T::MASK as usize >> Self::LEN_HEAD_BITS;
+	pub(crate) const PTR_HEAD_MASK: usize = T::MASK as usize >> Self::LEN_HEAD_BITS;
 
 	/// The number of low bits in `self.len` that are the low bits of the head
 	/// `BitIdx` cursor.
 	///
 	/// This is always `3`, until Rust tries to target a machine whose bytes are
 	/// not eight bits wide.
-	pub const LEN_HEAD_BITS: usize = 3;
+	pub(crate) const LEN_HEAD_BITS: usize = 3;
 
 	/// Marks the bits of `self.len` that are the `head` section.
-	pub const LEN_HEAD_MASK: usize = 0b0111;
+	pub(crate) const LEN_HEAD_MASK: usize = 0b0111;
 
 	/// The inclusive maximum number of elements that can be stored in a
 	/// `BitPtr` domain.
-	pub const MAX_ELTS: usize = (Self::MAX_BITS >> 3) + 1;
+	pub(crate) const MAX_ELTS: usize = (Self::MAX_BITS >> 3) + 1;
 
 	/// The inclusive maximum bit index.
-	pub const MAX_BITS: usize = !0 >> Self::LEN_HEAD_BITS;
+	pub(crate) const MAX_BITS: usize = !0 >> Self::LEN_HEAD_BITS;
 
 	/// Produces an empty-slice representation.
 	///
@@ -340,7 +336,7 @@ where T: BitStore {
 	/// # Safety
 	///
 	/// The `BitPtr` returned by this function must never be dereferenced.
-	pub fn empty() -> Self {
+	pub(crate) fn empty() -> Self {
 		Self {
 			_ty: PhantomData,
 			ptr: NonNull::dangling(),
@@ -561,7 +557,7 @@ where T: BitStore {
 	/// A `BitIdx` that is the index of the first live bit in the first element.
 	/// This will be in the domain `0 .. T::BITS`.
 	#[inline]
-	pub fn head(&self) -> BitIdx<T> {
+	pub(crate) fn head(&self) -> BitIdx<T> {
 		let ptr = self.ptr.as_ptr() as usize;
 		let ptr_head = (ptr & Self::PTR_HEAD_MASK) << Self::LEN_HEAD_BITS;
 		let len_head = self.len & Self::LEN_HEAD_MASK;
@@ -616,7 +612,7 @@ where T: BitStore {
 	///
 	/// A count of the live bits in the slice.
 	#[inline]
-	pub fn len(&self) -> usize {
+	pub(crate) fn len(&self) -> usize {
 		self.len >> Self::LEN_HEAD_BITS
 	}
 
@@ -668,7 +664,7 @@ where T: BitStore {
 	///
 	/// This size must be valid in the user’s memory model and allocation
 	/// regime.
-	pub fn elements(&self) -> usize {
+	pub(crate) fn elements(&self) -> usize {
 		self.head().span(self.len()).0
 	}
 
@@ -683,7 +679,7 @@ where T: BitStore {
 	/// A `TailIdx` that is the index of the first dead bit after the last live
 	/// bit in the last element. This will be in the domain `1 ..= T::BITS`.
 	#[inline]
-	pub fn tail(&self) -> TailIdx<T> {
+	pub(crate) fn tail(&self) -> TailIdx<T> {
 		/*
 		 * This function is one of the most-used in the library. As such, its
 		 * implementation is written in a straight linear style. The compiler is
@@ -706,38 +702,6 @@ where T: BitStore {
 		((((tail == 0) as u8) << T::INDX) | tail as u8).tail_idx()
 	}
 
-	/// Checks if the pointer represents the empty slice.
-	///
-	/// All empty slices have `0` `bits` counters.
-	///
-	/// # Parameters
-	///
-	/// - `&self`
-	///
-	/// # Returns
-	///
-	/// Whether the slice is empty or populated.
-	#[inline]
-	pub fn is_empty(&self) -> bool {
-		self.len & !Self::LEN_HEAD_MASK == 0
-	}
-
-	/// Checks if the pointer represents the full slice.
-	///
-	/// The full slice has `!0` `bits` counters.
-	///
-	/// # Parameters
-	///
-	/// - `&self`
-	///
-	/// # Returns
-	///
-	/// Whether the slice is full or has room for more growth.
-	#[inline]
-	pub fn is_full(&self) -> bool {
-		self.len | Self::LEN_HEAD_MASK == !0
-	}
-
 	/// Accesses the element slice behind the pointer as a Rust slice.
 	///
 	/// # Safety
@@ -758,7 +722,7 @@ where T: BitStore {
 	/// # Lifetimes
 	///
 	/// - `'a`: Lifetime for which the data behind the pointer is live.
-	pub fn as_slice<'a>(&self) -> &'a [T] {
+	pub(crate) fn as_slice<'a>(&self) -> &'a [T] {
 		unsafe { slice::from_raw_parts(self.pointer().r, self.elements()) }
 	}
 
@@ -782,7 +746,7 @@ where T: BitStore {
 	/// # Lifetimes
 	///
 	/// - `'a`: Lifetime for which the data behind the pointer is live.
-	pub fn as_mut_slice<'a>(&self) -> &'a mut [T] {
+	pub(crate) fn as_mut_slice<'a>(&self) -> &'a mut [T] {
 		unsafe { slice::from_raw_parts_mut(self.pointer().w, self.elements()) }
 	}
 
@@ -817,7 +781,7 @@ where T: BitStore {
 	/// # Returns
 	///
 	/// An enum describing the live bits in the region the pointer covers.
-	pub fn domain_kind(&self) -> BitDomainKind {
+	pub(crate) fn domain_kind(&self) -> BitDomainKind {
 		self.into()
 	}
 
@@ -831,7 +795,7 @@ where T: BitStore {
 	///
 	/// An enum containing the logical components of the domain governed by
 	/// `self`.
-	pub fn domain<'a>(&self) -> BitDomain<'a, T> {
+	pub(crate) fn domain<'a>(&self) -> BitDomain<'a, T> {
 		self.into()
 	}
 
@@ -845,7 +809,7 @@ where T: BitStore {
 	///
 	/// An enum containing the logical components of the domain governed by
 	/// `self`.
-	pub fn domain_mut<'a>(&self) -> BitDomainMut<'a, T> {
+	pub(crate) fn domain_mut<'a>(&self) -> BitDomainMut<'a, T> {
 		self.into()
 	}
 
@@ -1099,7 +1063,6 @@ mod tests {
 
 	#[test]
 	fn associated_consts_u8() {
-		assert_eq!(BitPtr::<u8>::PTR_DATA_BITS, PTR_BITS);
 		assert_eq!(BitPtr::<u8>::PTR_HEAD_BITS, 0);
 
 		assert_eq!(BitPtr::<u8>::PTR_DATA_MASK, !0);
@@ -1108,7 +1071,6 @@ mod tests {
 
 	#[test]
 	fn associated_consts_u16() {
-		assert_eq!(BitPtr::<u16>::PTR_DATA_BITS, PTR_BITS - 1);
 		assert_eq!(BitPtr::<u16>::PTR_HEAD_BITS, 1);
 
 		assert_eq!(BitPtr::<u16>::PTR_DATA_MASK, !0 << 1);
@@ -1117,7 +1079,6 @@ mod tests {
 
 	#[test]
 	fn associated_consts_u32() {
-		assert_eq!(BitPtr::<u32>::PTR_DATA_BITS, PTR_BITS - 2);
 		assert_eq!(BitPtr::<u32>::PTR_HEAD_BITS, 2);
 
 		assert_eq!(BitPtr::<u32>::PTR_DATA_MASK, !0 << 2);
@@ -1126,7 +1087,6 @@ mod tests {
 
 	#[test]
 	fn associated_consts_u64() {
-		assert_eq!(BitPtr::<u64>::PTR_DATA_BITS, PTR_BITS - 3);
 		assert_eq!(BitPtr::<u64>::PTR_HEAD_BITS, 3);
 
 		assert_eq!(BitPtr::<u64>::PTR_DATA_MASK, !0 << 3);
@@ -1149,7 +1109,7 @@ mod tests {
 		//  anything with 0 bits is unconditionally empty
 		let bp = BitPtr::<u8>::new(&data as *const u8, 2.idx(), 0);
 
-		assert!(bp.is_empty());
+		assert_eq!(bp.len(), 0);
 		assert_eq!(*bp.head(), 2);
 		assert_eq!(*bp.tail(), 2);
 	}

@@ -3576,7 +3576,7 @@ where C: Cursor, T: BitStore {
 		//  slice fully owns its memory, use `ptr::copy` instead of a bitwise
 		//  crawl.
 		if shamt & T::MASK as usize == 0
-		&& self.bitptr().domain_kind().is_spanning() {
+		&& self.bitptr().domain().is_spanning() {
 			//  Compute the shift distance measured in elements.
 			let offset = shamt.shr(T::INDX);
 			//  Compute the number of elements that will remain.
@@ -3682,7 +3682,7 @@ where C: Cursor, T: BitStore {
 		//  slice fully owns its memory, use `ptr::copy` instead of a bitwise
 		//  crawl.
 		if shamt & T::MASK as usize == 0
-		&& self.bitptr().domain_kind().is_spanning() {
+		&& self.bitptr().domain().is_spanning() {
 			//  Compute the shift amount measured in elements.
 			let offset = shamt >> T::INDX;
 			// Compute the number of elements that will remain.
