@@ -208,6 +208,20 @@ where C: Cursor, T: BitStore {
 
 	/// Clones a `&BitSlice` into a `BitBox`.
 	///
+	/// Note: this routes through [`BitVec::from_bitslice`], which permits
+	/// misaligned slices to be carried through without incident. As such, the
+	/// memory behind this box may contain a misaligned slice, whose live data
+	/// region does not begin at the `0` index.
+	///
+	/// This method does not force alignment. If you are boxing a bitslice and
+	/// require that the memory is aligned, use the following sequence:
+	///
+	/// 1. Use `BitVec::from_bitslice` or an equivalent function
+	///   (`BitSlice::to_owned`, `BitSlice::into`, `BitVec::from`) to create a
+	///   bit vector.
+	/// 1. Use [`BitVec::force_align`] to ensure alignment to the zero index.
+	/// 1. Use `BitVec::into_boxed_bitslice` or an equivalent function.
+	///
 	/// # Parameters
 	///
 	/// - `slice`: The bit slice to clone into a bit box.
@@ -226,6 +240,9 @@ where C: Cursor, T: BitStore {
 	/// assert_eq!(bb.len(), 16);
 	/// assert!(bb.some());
 	/// ```
+	///
+	/// [`BitVec::from_bitslice`]: ../vec/struct.BitVec.html#method.from_bitslice
+	/// [`BitVec::force_align`]: ../vec/struct.BitVec.html#method.force_align
 	pub fn from_bitslice(slice: &BitSlice<C, T>) -> Self {
 		BitVec::from_bitslice(slice).into_boxed_bitslice()
 	}
@@ -296,12 +313,9 @@ where C: Cursor, T: BitStore {
 	/// assert_eq!(slice.len(), 2);
 	/// ```
 	pub fn into_boxed_slice(self) -> Box<[T]> {
-		let slice = self.bitptr.as_mut_slice();
-		let (data, elts) = (slice.as_mut_ptr(), slice.len());
-		let out = unsafe { Vec::from_raw_parts(data, elts, elts) }
-			.into_boxed_slice();
-		mem::forget(self);
-		out
+		BitVec::<C, T>::from(self)
+			.into_vec()
+			.into_boxed_slice()
 	}
 
 	/// Constructs a `BitBox` from a raw `BitPtr`.
@@ -439,35 +453,6 @@ where C: Cursor, T: BitStore {
 	pub fn as_mut_bitslice(&mut self) -> &mut BitSlice<C, T> {
 		self.bitptr.into_bitslice_mut()
 	}
-
-	/// Allows a function to access the `Box<[T]>` that the `BitBox` is using
-	/// under the hood.
-	///
-	/// # Parameters
-	///
-	/// - `&self`
-	/// - `func`: A function which works with a borrowed `Box<[T]>` representing
-	///   the actual memory held by the `BitBox`.
-	///
-	/// # Type Parameters
-	///
-	/// - `F: FnOnce(&Box<[T]>) -> R`: A function which borrows a box.
-	/// - `R`: The return value of the function.
-	///
-	/// # Returns
-	///
-	/// The return value of the provided function.
-	fn do_with_box<F, R>(&self, func: F) -> R
-	where F: FnOnce(&Box<[T]>) -> R {
-		let slice = self.pointer.as_mut_slice();
-		let (data, elts) = (slice.as_mut_ptr(), slice.len());
-		let b: Box<[T]> = unsafe {
-			Vec::from_raw_parts(data, elts, elts)
-		}.into_boxed_slice();
-		let out = func(&b);
-		mem::forget(b);
-		out
-	}
 }
 
 impl<C, T> Borrow<BitSlice<C, T>> for BitBox<C, T>
@@ -487,14 +472,7 @@ where C: Cursor, T: BitStore {
 impl<C, T> Clone for BitBox<C, T>
 where C: Cursor, T: BitStore {
 	fn clone(&self) -> Self {
-		let new_box = self.do_with_box(Clone::clone);
-		let mut bitptr = self.bitptr;
-		unsafe { bitptr.set_pointer(new_box.as_ptr()); }
-		mem::forget(new_box);
-		Self {
-			bitptr,
-			_cursor: PhantomData,
-		}
+		self.as_bitslice().to_owned().into_boxed_bitslice()
 	}
 }
 
