@@ -578,6 +578,97 @@ where T: BitStore {
 	}
 }
 
+/** Newtype indicating a one-hot encoding bit-mask over an element.
+
+This type is produced by [`Cursor`] implementations and then consumed by the
+setter and getter functions of [`BitStore::Nucleus`]. It ensures that the
+wrapped `T` value has only one bit set, and may be safely used as a mask for the
+setter and getter operations.
+
+# Type Parameters
+
+- `T`: The storage type being masked.
+
+[`BitStore::Nucleus`]: trait.BitStore.html#associatedtype.Nucleus
+[`Cursor`]: ../cursor/trait.Cursor.html
+**/
+pub struct BitMask<T>
+where T: BitStore {
+	/// A one-hot masking value used in single-bit access.
+	mask: T,
+}
+
+impl<T> BitMask<T>
+where T: BitStore {
+	/// Produces a new bit mask wrapper around a mask value.
+	///
+	/// `Cursor` implementations should prefer this method, but *may* use
+	/// [`::new_unchecked`] if they can guarantee that the one-hot invariant is
+	/// upheld.
+	///
+	/// # Parameters
+	///
+	/// - `val`: The mask value to wrap. This **must** have exactly one bit set
+	///   to high, and all others set to low.
+	///
+	/// # Returns
+	///
+	/// `val` wrapped in the `BitMask` marker type.
+	///
+	/// # Panics
+	///
+	/// This function always panics if `val` has 0, or multiple, bits set high.
+	///
+	/// [`::new_unchecked`]: #method.new_unchecked
+	#[inline(always)]
+	pub fn new(val: T) -> Self {
+		assert!(
+			val.count_ones() == 1,
+			"A mask must be a one-hot encoding of a position index!",
+		);
+		Self { mask: val }
+	}
+
+	/// Produces a new bit mask wrapper around any value.
+	///
+	/// # Safety
+	///
+	/// The caller *must* ensure that `val` has exactly one bit set. `Cursor`
+	/// implementations should prefer [`::new`], which always panics on failure.
+	///
+	/// # Parameters
+	///
+	/// - `val`: The mask value to wrap. This must have exactly one bit set.
+	///
+	/// # Returns
+	///
+	/// `val` wrapped in the `BitMask` marker type.
+	///
+	/// # Panics
+	///
+	/// This function panics if `val` is invalid only in debug builds, and does
+	/// not inspect `val` in release builds.
+	///
+	/// [`::new`]: #method.new
+	#[inline(always)]
+	pub unsafe fn new_unchecked(val: T) -> Self {
+		debug_assert!(
+			val.count_ones() == 1,
+			"A mask must be a one-hot encoding of a position index!",
+		);
+		Self { mask: val }
+	}
+}
+
+impl<T> Deref for BitMask<T>
+where T: BitStore {
+	type Target = T;
+
+	fn deref(&self) -> &Self::Target {
+		&self.mask
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;

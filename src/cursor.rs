@@ -17,6 +17,7 @@ Contiguity is not required.
 use crate::{
 	indices::{
 		BitIdx,
+		BitMask,
 		BitPos,
 	},
 	store::BitStore,
@@ -96,6 +97,57 @@ pub trait Cursor {
 	/// `T::BITS ..` will induce panics elsewhere in the library.
 	fn at<T>(cursor: BitIdx<T>) -> BitPos<T>
 	where T: BitStore;
+
+	/// Translate a semantic bit index into an electrical bit mask.
+	///
+	/// This is an optional function; a default implementation is provided for
+	/// you.
+	///
+	/// The default implementation of this function calls `C::at` to produce an
+	/// electrical position, then produces a mask by setting the nth bit more
+	/// significant than the least significant bit of the elemnet. `Cursor`
+	/// implementors may choose to provide a faster mask production here, but
+	/// they must satisfy the invariants listed below.
+	///
+	/// # Parameters
+	///
+	/// - `cursor`: The semantic bit index.
+	///
+	/// # Returns
+	///
+	/// A one-hot encoding of the provided `cursor`’s electrical position in the
+	/// `T` element`.
+	///
+	/// # Type Parameters
+	///
+	/// - `T`: the storage type for which the mask will be calculated. The mask
+	///   must also be this type, as it will be applied to an element of `T` in
+	///   order to set, clear, or test a single bit.
+	///
+	/// # Invariants
+	///
+	/// A one-hot encoding means that there is exactly one bit set in the
+	/// produced value. It must be equivalent to `1 << C::at::<T>(cursor)`.
+	///
+	/// As with `at`, this function must produce a unique mapping from each
+	/// legal index in the `T` domain to a one-hot value of `T`.
+	///
+	/// # Safety
+	///
+	/// This function requires that the output is always a one-hot value. It is
+	/// illegal to produce a value with more than one bit set, and doing so will
+	/// cause uncontrolled side effects.
+	fn mask<T>(cursor: BitIdx<T>) -> BitMask<T>
+	where T: BitStore {
+		let place = Self::at(cursor);
+		debug_assert!(
+			*place < T::BITS,
+			"Bit position {} must be less than the width {}",
+			*place,
+			T::BITS,
+		);
+		BitMask::new(T::from(1) << *place)
+	}
 }
 
 impl Cursor for BigEndian {

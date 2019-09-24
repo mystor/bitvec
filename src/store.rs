@@ -10,6 +10,7 @@ not exported in the prelude.
 !*/
 
 use crate::{
+	access::BitAccess,
 	cursor::Cursor,
 	indices::*,
 };
@@ -35,13 +36,8 @@ use core::{
 		Shr,
 		ShrAssign,
 	},
+	sync::atomic,
 };
-
-#[cfg(feature = "atomic")]
-use crate::atomic::Atomic;
-
-#[cfg(feature = "atomic")]
-use core::sync::atomic;
 
 /** Generalizes over the fundamental types for use in `bitvec` data structures.
 
@@ -99,46 +95,17 @@ pub trait BitStore:
 	/// stabilizes `type_name()`.
 	const TYPENAME: &'static str;
 
-	/// Atomic version of the storage type, to have properly fenced access.
-	#[cfg(feature = "atomic")]
+	/// Shared-mutable accessor.
 	#[doc(hidden)]
-	type Atom: Atomic<Self>;
-
-	/// Performs a synchronized load on the underlying element.
-	///
-	/// # Parameters
-	///
-	/// - `&self`
-	///
-	/// # Returns
-	///
-	/// The element referred to by the `self` reference, loaded synchronously
-	/// after any in-progress accesses have concluded.
-	#[cfg(feature = "atomic")]
-	#[inline(always)]
-	fn load(&self) -> Self {
-		let aptr = self as *const Self as *const Self::Atom;
-		unsafe { &*aptr }.get()
-	}
-
-	/// Performs an unsynchronized load on the underlying element.
-	///
-	/// As atomic operations are unavailable, this is a standard dereference.
-	///
-	/// # Parameters
-	///
-	/// - `&self`
-	///
-	/// # Returns
-	///
-	/// The referent element.
-	#[cfg(not(feature = "atomic"))]
-	#[inline(always)]
-	fn load(&self) -> Self {
-		*self
-	}
+	type Access: BitAccess<Self>;
 
 	/// Sets a specific bit in an element to a given value.
+	///
+	/// # Safety
+	///
+	/// This method cannot be called from within a `&mut BitSlice` context; it
+	/// may only be called by construction of an `&mut Self` reference directly
+	/// from a `Self` element.
 	///
 	/// # Parameters
 	///
@@ -151,51 +118,25 @@ pub trait BitStore:
 	///
 	/// - `C: Cursor`: A `Cursor` implementation to translate the index into a
 	///   position.
-	///
-	/// # Panics
-	///
-	/// This function panics if `place` is not less than `T::BITS`, in order to
-	/// avoid index out of range errors.
 	#[inline(always)]
 	fn set<C>(&mut self, place: BitIdx<Self>, value: bool)
 	where C: Cursor {
-		self.set_at(C::at::<Self>(place), value)
-	}
-
-	/// Sets a specific bit in an element to a given value.
-	///
-	/// # Parameters
-	///
-	/// - `place`: A bit *position* in the element, where `0` is the LSbit and
-	///   `Self::MASK` is the MSbit.
-	/// - `value`: A Boolean value, which sets the bit high on `true` and unsets
-	///   it low on `false`.
-	///
-	/// # Panics
-	///
-	/// This function panics if `place` is not less than `T::BITS`, in order to
-	/// avoid index out of range errors.
-	fn set_at(&mut self, place: BitPos<Self>, value: bool) {
-		#[cfg(feature = "atomic")] {
-			let aptr = self as *const Self as *const Self::Atom;
-			if value {
-				unsafe { &*aptr }.set(place);
-			}
-			else {
-				unsafe { &*aptr }.clear(place);
-			}
+		let mask = *C::mask(place);
+		if value {
+			*self |= mask;
 		}
-		#[cfg(not(feature = "atomic"))] {
-			if value {
-				*self |= Self::mask_at(place);
-			}
-			else {
-				*self &= !Self::mask_at(place);
-			}
+		else {
+			*self &= !mask;
 		}
 	}
 
 	/// Gets a specific bit in an element.
+	///
+	/// # Safety
+	///
+	/// This method cannot be called from within a `&BitSlice` context; it may
+	/// only be called by construction of an `&Self` reference directly from a
+	/// `Self` element.
 	///
 	/// # Parameters
 	///
@@ -210,57 +151,9 @@ pub trait BitStore:
 	///
 	/// - `C: Cursor`: A `Cursor` implementation to translate the index into a
 	///   position.
-	///
-	/// # Panics
-	///
-	/// This function panics if `place` is not less than `T::BITS`, in order to
-	/// avoid index out of range errors.
 	fn get<C>(&self, place: BitIdx<Self>) -> bool
 	where C: Cursor {
-		self.get_at(C::at::<Self>(place))
-	}
-
-	/// Gets a specific bit in an element.
-	///
-	/// # Parameters
-	///
-	/// - `place`: A bit *position* in the element, from `0` at LSbit to
-	///   `Self::MASK` at MSbit. The bit under this position will be retrieved
-	///   as a `bool`.
-	///
-	/// # Returns
-	///
-	/// The value of the bit under `place`, as a `bool`.
-	///
-	/// # Panics
-	///
-	/// This function panics if `place` is not less than `T::BITS`, in order to
-	/// avoid index out of range errors.
-	fn get_at(&self, place: BitPos<Self>) -> bool {
-		self.load() & Self::mask_at(place) != Self::from(0u8)
-	}
-
-	/// Produces the bit mask which selects only the bit at the requested
-	/// position.
-	///
-	/// This mask must be inverted in order to clear the bit.
-	///
-	/// # Parameters
-	///
-	/// - `place`: The bit position for which to create a bitmask.
-	///
-	/// # Returns
-	///
-	/// The one-hot encoding of the bit position index.
-	///
-	/// # Panics
-	///
-	/// This function panics if `place` is not less than `T::BITS`, in order to
-	/// avoid index out of range errors.
-	#[inline(always)]
-	fn mask_at(place: BitPos<Self>) -> Self {
-		//  Pad 1 to the correct width, then shift up to the correct bit place.
-		Self::from(1u8) << *place
+		*self & *C::mask(place) != Self::from(0)
 	}
 
 	/// Counts how many bits in `self` are set to `1`.
@@ -295,7 +188,7 @@ pub trait BitStore:
 	/// [`u64::count_ones`]: https://doc.rust-lang.org/stable/std/primitive.u64.html#method.count_ones
 	#[inline(always)]
 	fn count_ones(&self) -> usize {
-		u64::count_ones((self.load()).into()) as usize
+		u64::count_ones((*self).into()) as usize
 	}
 
 	/// Counts how many bits in `self` are set to `0`.
@@ -332,7 +225,7 @@ pub trait BitStore:
 	#[inline(always)]
 	fn count_zeros(&self) -> usize {
 		//  invert (0 becomes 1, 1 becomes 0), zero-extend, count ones
-		u64::count_ones((!self.load()).into()) as usize
+		u64::count_ones((!*self).into()) as usize
 	}
 
 	/// Extends a single bit to fill the entire element.
@@ -355,50 +248,40 @@ pub trait BitStore:
 	}
 }
 
-impl BitStore for u8 {
-	const TYPENAME: &'static str = "u8";
+/** Marker trait to seal `BitStore` against downstream implementation.
 
-	#[cfg(feature = "atomic")]
-	type Atom = atomic::AtomicU8;
-}
-
-impl BitStore for u16 {
-	const TYPENAME: &'static str = "u16";
-
-	#[cfg(feature = "atomic")]
-	type Atom = atomic::AtomicU16;
-}
-
-impl BitStore for u32 {
-	const TYPENAME: &'static str = "u32";
-
-	#[cfg(feature = "atomic")]
-	type Atom = atomic::AtomicU32;
-}
-
-#[cfg(target_pointer_width = "64")]
-impl BitStore for u64 {
-	const TYPENAME: &'static str = "u64";
-
-	#[cfg(feature = "atomic")]
-	type Atom = atomic::AtomicU64;
-}
-
-/// Marker trait to seal `BitStore` against downstream implementation.
-///
-/// This trait is public in the module, so that other modules in the crate can
-/// use it, but so long as it is not exported by the crate root and this module
-/// is private, this trait effectively forbids downstream implementation of the
-/// `BitStore` trait.
+This trait is public in the module, so that other modules in the crate can use
+it, but so long as it is not exported by the crate root and this module is
+private, this trait effectively forbids downstream implementation of the
+`BitStore` trait.
+**/
 #[doc(hidden)]
 pub trait Sealed {}
 
-impl Sealed for u8 {}
-impl Sealed for u16 {}
-impl Sealed for u32 {}
+macro_rules! store {
+	( $( $t:ty , $a:ty $( ; )? );* ) => { $(
+		impl Sealed for $t {}
+
+		impl BitStore for $t {
+			const TYPENAME: &'static str = stringify!($t);
+
+			#[cfg(feature = "atomic")]
+			type Access = $a;
+
+			#[cfg(not(feature = "atomic"))]
+			type Access = Cell<Self>;
+		}
+	)* };
+}
+
+store![
+	u8, atomic::AtomicU8;
+	u16, atomic::AtomicU16;
+	u32, atomic::AtomicU32;
+];
 
 #[cfg(target_pointer_width = "64")]
-impl Sealed for u64 {}
+store![u64, atomic::AtomicU64];
 
 #[cfg(test)]
 mod tests {
