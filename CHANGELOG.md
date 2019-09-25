@@ -6,12 +6,56 @@ This document is written according to the [Keep a Changelog][kac] style.
 
 ## 0.16.0
 
+### Added
+
+- Per discussions with [@mystor] and [@oli-obk] at RustConf 2019, I have been
+  convinced that the production of any standard reference to the underlying
+  memory that might alias is a potential site of undefined behavior. Adjacent
+  `&mut BitSlice`s that share an edge element (which are sound to produce
+  because `&mut [()]` is considered in the compiler to never alias) may produce
+  aliasing `&T`/`&mut T` references, which *is* undefined behavior in the
+  compiler.
+
+  As such, `BitStore` now defines an associated trait (`BitAccess`) which is
+  implemented on the atomic type wrappers and on `Cell`, and all `BitSlice`
+  access to memory is routed through this trait which synchronizes (under the
+  `atomic` feature) or permits shared mutation ordered by the call stack
+  (non-`atomic`).
+
+- The `Cursor` trait has a new function, `mask`, which produces a one-hot access
+  mask using `Cursor::at`. The default implementation uses `Cursor::at` to
+  create a `BitPos`, then shifts `1` left by the position amount. Implementors
+  of `Cursor` may override the default with a faster function.
+
+- A `BitMask` type that encodes the one-hot mask requirements in the type
+  system.
+
 ### Changed
 
-- `Bits` and `BitsMut` traits now have eponymous methods. The inherent methods
-  `as_bitslice` and `as_mut_bitslice` on `BitBox` and `BitVec` are similarly
-  renamed to `as_bits` and `as_bits_mut`. The old names are marked deprecated,
-  and will be removed in `0.17`.
+- `BitSlice` shift operations have had a long-standing bug where a shift amount
+  that is an even multiple of the element width would unconditionally shift the
+  underlying memory elements, even when that memory domain could be observed by
+  other slices. This is a serious error that affected all releases in 2019. As
+  `bitvec` is still in the development `0.x` series, and these partial slices
+  are expected to be rare, the releases will not be yanked until after `1.0`.
+
+  `BitSlice` shift operations now use the fast path only when the shift amount
+  permits it **and** the slice fully spans its underlying memory; otherwise, it
+  uses the slower path.
+
+- The `Bits::as_bitslice` and `BitsMut::as_mut_bitslice` functions are renamed
+  to `bits` and `bits_mut`, respectively. This change was done for two reasons:
+  they are the canonical entry point to the crate for immediate values, and
+  should have short names to reflect their status as being often called; and
+  traits with only one function should have that function be named after the
+  trait.
+
+  In addition, the `BitVec::as_bitslice` and `as_mut_bitslice` inherent
+  methods are renamed to `as_bits` and `as_bits_mut`, to match the naming scheme
+  above, but retain the distinction of being an upcast rather than a
+  construction.
+
+  The old names are marked deprecated, and will be removed in `0.17`.
 
 ## 0.15.2
 
@@ -485,6 +529,8 @@ Initial implementation and release.
 [@caelunshun]: https://github.com/caelunshun
 [@geq1t]: https://github.com/geq1t
 [@koushiro]: https://github.com/koushiro
+[@mystor]: https://github.com/mystor
+[@oli-obk]: https://github.com/oli-obk
 [@overminder]: https://github.com/overminder
 [@ratorx]: https://github.com/ratorx
 [@schomatis]: https://github.com/schomatis

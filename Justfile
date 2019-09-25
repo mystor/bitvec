@@ -5,21 +5,23 @@
 # does not work on Windows.                                                    #
 ################################################################################
 
-# Cargo features
-features = "atomic,serde,std"
+# Runs the benchmarks.
+bench:
+	cargo +nightly bench
 
 # Builds the library.
 build:
 	cargo build --no-default-features
 	cargo build --no-default-features --features alloc
-	cargo build --features {{features}}
-	cargo build --features {{features}} --example sieve
-	cargo build --features {{features}} --example tour
+	cargo build --all-features
+	cargo build --all-features --example sieve
+	cargo build --all-features --example tour
 
 # Checks the library for syntax and HIR errors.
 check:
 	cargo check --no-default-features
-	cargo check --features {{features}}
+	cargo check --no-default-features --features alloc
+	cargo check --all-features
 
 # Runs all of the recipes necessary for pre-publish.
 checkout: check clippy build doc test package
@@ -35,18 +37,22 @@ clean:
 # Runs clippy.
 clippy: check
 	cargo clippy --no-default-features
-	cargo clippy --features {{features}}
+	cargo clippy --no-default-features --features alloc
+	cargo clippy --all-features
 
 # Runs the development routines.
 dev: clippy doc test
 
 # Builds the crate documentation.
 doc:
-	cargo doc --features {{features}} --document-private-items
+	cargo doc --all-features --document-private-items
 
 # Continually runs some recipe from this file.
 loop action:
 	cargo watch -s "just {{action}}"
+
+miri:
+	cargo +nightly miri test
 
 # Packages the crate in preparation for publishing on crates.io
 package:
@@ -59,6 +65,6 @@ publish: checkout
 # Runs the test suites.
 test: check clippy
 	cargo test --no-default-features
-	cargo test --features testing,{{features}}
-	cargo run --features {{features}} --example sieve
-	cargo run --features {{features}} --example tour
+	cargo test --all-features
+	cargo run --all-features --example sieve
+	cargo run --all-features --example tour

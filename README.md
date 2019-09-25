@@ -1,12 +1,19 @@
-# `bitvec` – Managing Memory Bit by Bit
+<div align="center">
+
+# `bitvec`
+
+## Managing Memory Bit by Bit
 
 [![Crate][crate_img]][crate]
 [![Documentation][docs_img]][docs]
 [![License][license_img]][license_file]
+
 [![Continuous Integration][travis_img]][travis]
 [![Code Coverage][codecov_img]][codecov]
 [![Crate Downloads][downloads_img]][crate]
 [![Crate Size][loc_img]][loc]
+
+</div>
 
 ## Summary
 
@@ -81,7 +88,7 @@ with the stable compiler series.
 ```toml
 # Cargo.toml
 [dependencies]
-bitvec = "0.15"
+bitvec = "0.16"
 ```
 
 `bitvec` is highly modular, and requires several items to function correctly.
