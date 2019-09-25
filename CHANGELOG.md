@@ -13,6 +13,14 @@ This document is written according to the [Keep a Changelog][kac] style.
   renamed to `as_bits` and `as_bits_mut`. The old names are marked deprecated,
   and will be removed in `0.17`.
 
+## 0.15.2
+
+### Changed
+
+The `bitvec![bit; rep]` construction macro has its implementation rewritten to
+be much faster. This fault was reported by GitHub user [@caelunshun] in
+[Issue #28].
+
 ## 0.15.1
 
 ### Removed
@@ -474,6 +482,7 @@ Initial implementation and release.
 - `bitvec!` generator macro
 
 [@GeorgeGkas]: https://github.com/GeorgeGkas
+[@caelunshun]: https://github.com/caelunshun
 [@geq1t]: https://github.com/geq1t
 [@koushiro]: https://github.com/koushiro
 [@overminder]: https://github.com/overminder
@@ -487,5 +496,6 @@ Initial implementation and release.
 [Issue #12]: https://github.com/myrrlyn/bitvec/issues/12
 [Issue #15]: https://github.com/myrrlyn/bitvec/issues/15
 [Issue #16]: https://github.com/myrrlyn/bitvec/issues/16
+[Issue #28]: https://github.com/myrrlyn/bitvec/issues/28
 [`Sync`]: https://doc.rust-lang.org/stable/core/marker/trait.Sync.html
 [kac]: https://keepachangelog.com/en/1.0.0/
