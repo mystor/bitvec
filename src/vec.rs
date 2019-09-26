@@ -34,6 +34,7 @@ use alloc::{
 };
 
 use core::{
+	any::type_name,
 	clone::Clone,
 	cmp::{
 		Eq,
@@ -2059,15 +2060,15 @@ where C: Cursor, T: BitStore {
 	///   0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 0, 1
 	/// ];
 	/// assert_eq!(
-	///   "BitVec<LittleEndian, u16> [0101000011110101]",
+	///   "BitVec<bitvec::cursor::LittleEndian, u16> [0101000011110101]",
 	///   &format!("{:?}", bv)
 	/// );
 	/// ```
 	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
 		f.write_str("BitVec<")?;
-		f.write_str(C::TYPENAME)?;
+		f.write_str(type_name::<C>())?;
 		f.write_str(", ")?;
-		f.write_str(T::TYPENAME)?;
+		f.write_str(type_name::<T>())?;
 		f.write_str("> ")?;
 		Display::fmt(&**self, f)
 	}

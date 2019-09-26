@@ -77,11 +77,10 @@ logic.
 
 ## Usage
 
-**Minimum Rust Version**: `1.36.0`
+**Minimum Rust Version**: `1.38.0`
 
-The `1.36` release of Rust stabilized the `alloc` crate, allowing allocating
-features (such as the `BitVec` type) to be used in `#![no_std]` environments
-with the stable compiler series.
+The `1.38.0` release stabilized `core::any::type_name`, which is used in the
+`fmt` trait implementations.
 
 ### Symbol Import
 

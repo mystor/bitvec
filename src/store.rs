@@ -91,10 +91,6 @@ pub trait BitStore:
 	/// are always stored in the lowest bits of an index value.
 	const MASK: u8 = Self::BITS - 1;
 
-	/// Name of the implementing type. This is only necessary until the compiler
-	/// stabilizes `type_name()`.
-	const TYPENAME: &'static str;
-
 	/// Shared-mutable accessor.
 	#[doc(hidden)]
 	type Access: BitAccess<Self>;
@@ -263,8 +259,6 @@ macro_rules! store {
 		impl Sealed for $t {}
 
 		impl BitStore for $t {
-			const TYPENAME: &'static str = stringify!($t);
-
 			#[cfg(feature = "atomic")]
 			type Access = $a;
 

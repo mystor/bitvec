@@ -23,6 +23,10 @@ use crate::{
 	store::BitStore,
 };
 
+use core::{
+	any::type_name,
+};
+
 /// Traverses an element from `MSbit` to `LSbit`.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct BigEndian;
@@ -40,9 +44,6 @@ pub struct LittleEndian;
 electrical position, `BitPos`.
 **/
 pub trait Cursor {
-	/// Name of the cursor type, for use in text display.
-	const TYPENAME: &'static str;
-
 	/// Translate a semantic bit index into an electrical bit position.
 	///
 	/// # Parameters
@@ -151,8 +152,6 @@ pub trait Cursor {
 }
 
 impl Cursor for BigEndian {
-	const TYPENAME: &'static str = "BigEndian";
-
 	/// Maps a semantic count to a concrete position.
 	///
 	/// `BigEndian` order moves from `MSbit` first to `LSbit` last.
@@ -163,8 +162,6 @@ impl Cursor for BigEndian {
 }
 
 impl Cursor for LittleEndian {
-	const TYPENAME: &'static str = "LittleEndian";
-
 	/// Maps a semantic count to a concrete position.
 	///
 	/// `LittleEndian` order moves from `LSbit` first to `MSbit` last.

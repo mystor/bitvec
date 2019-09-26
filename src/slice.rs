@@ -30,6 +30,7 @@ use {
 };
 
 use core::{
+	any::type_name,
 	cmp::{
 		Eq,
 		Ord,
@@ -2728,16 +2729,16 @@ where C: Cursor, T: BitStore {
 	/// let src = [0b0101_0000_1111_0101u16, 0b00000000_0000_0010];
 	/// let bits = &src.bits::<LittleEndian>()[.. 18];
 	/// assert_eq!(
-    ///     "BitSlice<LittleEndian, u16> [1010111100001010, 01]",
+    ///     "BitSlice<bitvec::cursor::LittleEndian, u16> [1010111100001010, 01]",
 	///     &format!("{:?}", bits),
 	/// );
 	/// # }
 	/// ```
 	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
 		f.write_str("BitSlice<")?;
-		f.write_str(C::TYPENAME)?;
+		f.write_str(type_name::<C>())?;
 		f.write_str(", ")?;
-		f.write_str(T::TYPENAME)?;
+		f.write_str(type_name::<T>())?;
 		f.write_str("> ")?;
 		Display::fmt(self, f)
 	}

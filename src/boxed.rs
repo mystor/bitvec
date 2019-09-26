@@ -28,6 +28,7 @@ use alloc::{
 };
 
 use core::{
+	any::type_name,
 	clone::Clone,
 	cmp::{
 		Eq,
@@ -617,9 +618,9 @@ impl<C, T> Debug for BitBox<C, T>
 where C: Cursor, T: BitStore {
 	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
 		f.write_str("BitBox<")?;
-		f.write_str(C::TYPENAME)?;
+		f.write_str(type_name::<C>())?;
 		f.write_str(", ")?;
-		f.write_str(T::TYPENAME)?;
+		f.write_str(type_name::<T>())?;
 		f.write_str("> ")?;
 		Display::fmt(self.as_bits(), f)
 	}

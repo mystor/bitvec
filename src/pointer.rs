@@ -19,6 +19,7 @@ use crate::{
 };
 
 use core::{
+	any::type_name,
 	convert::{
 		AsMut,
 		AsRef,
@@ -435,7 +436,7 @@ where T: BitStore {
 			data.u().trailing_zeros() as usize >= Self::PTR_HEAD_BITS,
 			"BitPtr domain pointer ({:p}) to {} must be aligned to at least {}",
 			data.r(),
-			T::TYPENAME,
+			type_name::<T>(),
 			Self::PTR_HEAD_BITS,
 		);
 
@@ -1048,7 +1049,7 @@ where T: BitStore {
 			}
 		}
 
-		write!(f, "BitPtr<{}>", T::TYPENAME)?;
+		write!(f, "BitPtr<{}>", type_name::<T>())?;
 		f.debug_struct("")
 			.field("data", &HexPtr::<T>(self.pointer().r()))
 			.field("head", &BinAddr::<T>(self.head()))

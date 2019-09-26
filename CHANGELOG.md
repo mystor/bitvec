@@ -6,6 +6,8 @@ This document is written according to the [Keep a Changelog][kac] style.
 
 ## 0.16.0
 
+The minimum compiler version is now `1.38.0`.
+
 ### Added
 
 - Per discussions with [@mystor] and [@oli-obk] at RustConf 2019, I have been
@@ -56,6 +58,12 @@ This document is written according to the [Keep a Changelog][kac] style.
   construction.
 
   The old names are marked deprecated, and will be removed in `0.17`.
+
+### Removed
+
+- Rust `1.38.0` stabilized the function `core::any::type_name::<T>()`, which
+  names a type for debugging purposes. This eliminates the need for `TYPENAME`
+  trait constants.
 
 ## 0.15.2
 
