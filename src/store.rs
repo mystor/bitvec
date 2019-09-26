@@ -36,8 +36,13 @@ use core::{
 		Shr,
 		ShrAssign,
 	},
-	sync::atomic,
 };
+
+#[cfg(feature = "atomic")]
+use core::sync::atomic;
+
+#[cfg(not(feature = "atomic"))]
+use core::cell::Cell;
 
 /** Generalizes over the fundamental types for use in `bitvec` data structures.
 
