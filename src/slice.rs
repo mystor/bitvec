@@ -2094,9 +2094,6 @@ where C: Cursor, T: BitStore {
 	/// the number of bits. The CPU is much faster, as it has access to
 	/// element-wise or vectorized addition operations.
 	///
-	/// If your use case sincerely needs binary-integer arithmetic operations on
-	/// bit sets
-	///
 	/// [ripple-carry adder]: https://en.wikipedia.org/wiki/Ripple-carry_adder
 	pub fn add_assign_reverse<I>(&mut self, addend: I) -> bool
 	where I: IntoIterator<Item=bool> {

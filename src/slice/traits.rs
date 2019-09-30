@@ -39,20 +39,6 @@ impl<C, T> ToOwned for BitSlice<C, T>
 where C: Cursor, T: BitStore {
 	type Owned = BitVec<C, T>;
 
-	/// Clones a borrowed `BitSlice` into an owned `BitVec`.
-	///
-	/// # Examples
-	///
-	/// ```rust
-	/// # #[cfg(feature = "alloc")] {
-	/// use bitvec::prelude::*;
-	///
-	/// let store = [0u8, 2];
-	/// let src = store.bits::<LittleEndian>();
-	/// let dst = src.to_owned();
-	/// assert_eq!(src, dst);
-	/// # }
-	/// ```
 	fn to_owned(&self) -> Self::Owned {
 		Self::Owned::from_bitslice(self)
 	}
@@ -69,40 +55,8 @@ where C: Cursor, T: BitStore {
 	}
 }
 
-/** Tests if two `BitSlice`s are semantically — not bitwise — equal.
-
-It is valid to compare two slices of different cursor or element types.
-
-The equality condition requires that they have the same number of total bits and
-that each pair of bits in semantic order are identical.
-**/
 impl<A, B, C, D> PartialEq<BitSlice<C, D>> for BitSlice<A, B>
 where A: Cursor, B: BitStore, C: Cursor, D: BitStore {
-	/// Performas a comparison by `==`.
-	///
-	/// # Parameters
-	///
-	/// - `&self`
-	/// - `rhs`: Another `BitSlice` against which to compare. This slice can
-	///   have different cursor or storage types.
-	///
-	/// # Returns
-	///
-	/// If the two slices are equal, by comparing the lengths and bit values at
-	/// each semantic index.
-	///
-	/// # Examples
-	///
-	/// ```rust
-	/// use bitvec::prelude::*;
-	///
-	/// let lsrc = [8u8, 16, 32, 0];
-	/// let rsrc = [0x10_08_04_00u32];
-	/// let lbits = lsrc.bits::<LittleEndian>();
-	/// let rbits = rsrc.bits::<BigEndian>();
-	///
-	/// assert_eq!(lbits, rbits);
-	/// ```
 	fn eq(&self, rhs: &BitSlice<C, D>) -> bool {
 		if self.len() != rhs.len() {
 			return false;
@@ -118,7 +72,6 @@ where A: Cursor, B: BitStore, C: Cursor, D: BitStore {
 	}
 }
 
-/// Allow comparison against the allocated form.
 #[cfg(feature = "alloc")]
 impl<A, B, C, D> PartialEq<BitVec<C, D>> for BitSlice<A, B>
 where A: Cursor, B: BitStore, C: Cursor, D: BitStore {
@@ -135,48 +88,8 @@ where A: Cursor, B: BitStore, C: Cursor, D: BitStore {
 	}
 }
 
-/** Compares two `BitSlice`s by semantic — not bitwise — ordering.
-
-The comparison sorts by testing each index for one slice to have a set bit where
-the other has a clear bit. If the slices are different, the slice with the set
-bit sorts greater than the slice with the clear bit.
-
-If one of the slices is exhausted before they differ, the longer slice is
-greater.
-**/
 impl<A, B, C, D> PartialOrd<BitSlice<C, D>> for BitSlice<A, B>
 where A: Cursor, B: BitStore, C: Cursor, D: BitStore {
-	/// Performs a comparison by `<` or `>`.
-	///
-	/// # Parameters
-	///
-	/// - `&self`
-	/// - `rhs`: Another `BitSlice` against which to compare. This slice can
-	///   have different cursor or storage types.
-	///
-	/// # Returns
-	///
-	/// The relative ordering of `self` against `rhs`. `self` is greater if it
-	/// has a `true` bit at an index where `rhs` has a `false`; `self` is lesser
-	/// if it has a `false` bit at an index where `rhs` has a `true`; if the two
-	/// slices do not disagree then they are compared by length.
-	///
-	/// # Examples
-	///
-	/// ```rust
-	/// use bitvec::prelude::*;
-	///
-	/// let src = 0x45u8;
-	/// let bits = src.bits::<BigEndian>();
-	/// let a = &bits[0 .. 3]; // 010
-	/// let b = &bits[0 .. 4]; // 0100
-	/// let c = &bits[0 .. 5]; // 01000
-	/// let d = &bits[4 .. 8]; // 0101
-	///
-	/// assert!(a < b);
-	/// assert!(b < c);
-	/// assert!(c < d);
-	/// ```
 	fn partial_cmp(&self, rhs: &BitSlice<C, D>) -> Option<Ordering> {
 		for (l, r) in self.iter().zip(rhs.iter()) {
 			match (l, r) {
@@ -212,62 +125,21 @@ where A: Cursor, B: BitStore, C: Cursor, D: BitStore {
 	}
 }
 
-/// Provides write access to all elements in the underlying storage, including
-/// the partial head and tail elements if present.
+/// Provides write access to all fully-owned elements in the underlying storage.
+/// This excludes the elements at either edge if they may be aliased by another
+/// slice.
 impl<C, T> AsMut<[T]> for BitSlice<C, T>
 where C: Cursor, T: BitStore {
-	/// Accesses the underlying store.
-	///
-	/// # Parameters
-	///
-	/// - `&mut self`
-	///
-	/// # Returns
-	///
-	/// A mutable slice of all storage elements.
-	///
-	/// # Examples
-	///
-	/// ```rust
-	/// use bitvec::prelude::*;
-	///
-	/// let mut src = [0u8, 128];
-	/// let bits = src.bits_mut::<BigEndian>();
-	///
-	/// for elt in bits.as_mut() {
-	///   *elt += 2;
-	/// }
-	///
-	/// assert_eq!(&[2, 130], bits.as_ref());
-	/// ```
 	fn as_mut(&mut self) -> &mut [T] {
 		self.as_mut_slice()
 	}
 }
 
-/// Provides read access to all elements in the underlying storage, including
-/// the partial head and tail elements if present.
+/// Provides read access to all fully-owned elements in the underlying storage.
+/// This excludes the elements at either edge if they may be accessed by another
+/// slice.
 impl<C, T> AsRef<[T]> for BitSlice<C, T>
 where C: Cursor, T: BitStore {
-	/// Accesses the underlying store.
-	///
-	/// # Parameters
-	///
-	/// - `&self`
-	///
-	/// # Returns
-	///
-	/// An immutable slice of all storage elements.
-	///
-	/// # Examples
-	///
-	/// ```rust
-	/// use bitvec::prelude::*;
-	///
-	/// let src = [0u8, 128];
-	/// let bits = src.bits::<BigEndian>();
-	/// assert_eq!(&[0, 128], bits.as_ref());
-	/// ```
 	fn as_ref(&self) -> &[T] {
 		self.as_slice()
 	}
@@ -315,35 +187,8 @@ where C: Cursor, T: 'a + BitStore {
 	}
 }
 
-/** Prints the `BitSlice` for debugging.
-
-The output is of the form `BitSlice<C, T> [ELT, *]` where `<C, T>` is the cursor
-and element type, with square brackets on each end of the bits and all the
-elements of the array printed in binary. The printout is always in semantic
-order, and may not reflect the underlying buffer. To see the underlying buffer,
-use `.as_ref()`.
-
-The alternate character `{:#?}` prints each element on its own line, rather than
-having all elements on the same line.
-**/
 impl<C, T> Debug for BitSlice<C, T>
 where C: Cursor, T: BitStore {
-	/// Renders the `BitSlice` type header and contents for debug.
-	///
-	/// # Examples
-	///
-	/// ```rust
-	/// # #[cfg(feature = "alloc")] {
-	/// use bitvec::prelude::*;
-	///
-	/// let src = [0b0101_0000_1111_0101u16, 0b00000000_0000_0010];
-	/// let bits = &src.bits::<LittleEndian>()[.. 18];
-	/// assert_eq!(
-    ///     "BitSlice<bitvec::cursor::LittleEndian, u16> [1010111100001010, 01]",
-	///     &format!("{:?}", bits),
-	/// );
-	/// # }
-	/// ```
 	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
 		f.write_str("BitSlice<")?;
 		f.write_str(type_name::<C>())?;
@@ -354,41 +199,8 @@ where C: Cursor, T: BitStore {
 	}
 }
 
-/** Prints the `BitSlice` for displaying.
-
-This prints each element in turn, formatted in binary in semantic order (so the
-first bit seen is printed first and the last bit seen is printed last). Each
-element of storage is separated by a space for ease of reading.
-
-The alternate character `{:#}` prints each element on its own line.
-
-To see the in-memory representation, use `.as_ref()` to get access to the raw
-elements and print that slice instead.
-**/
 impl<C, T> Display for BitSlice<C, T>
 where C: Cursor, T: BitStore {
-	/// Renders the `BitSlice` contents for display.
-	///
-	/// # Parameters
-	///
-	/// - `&self`
-	/// - `f`: The formatter into which `self` is written.
-	///
-	/// # Returns
-	///
-	/// The result of the formatting operation.
-	///
-	/// # Examples
-	///
-	/// ```rust
-	/// # #[cfg(feature = "alloc")] {
-	/// use bitvec::prelude::*;
-	///
-	/// let src = [0b01001011u8, 0b0100_0000];
-	/// let bits = &src.bits::<BigEndian>()[.. 10];
-	/// assert_eq!("[01001011, 01]", &format!("{}", bits));
-	/// # }
-	/// ```
 	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
 		struct Part<'a>(&'a str);
 		impl<'a> Debug for Part<'a> {
@@ -461,17 +273,6 @@ where C: Cursor, T: BitStore {
 /// Writes the contents of the `BitSlice`, in semantic bit order, into a hasher.
 impl<C, T> Hash for BitSlice<C, T>
 where C: Cursor, T: BitStore {
-	/// Writes each bit of the `BitSlice`, as a full `bool`, into the hasher.
-	///
-	/// # Parameters
-	///
-	/// - `&self`
-	/// - `hasher`: The hashing state into which the slice will be written.
-	///
-	/// # Type Parameters
-	///
-	/// - `H: Hasher`: The type of the hashing algorithm which receives the bits
-	///   of `self`.
 	fn hash<H>(&self, hasher: &mut H)
 	where H: Hasher {
 		for bit in self {

@@ -224,6 +224,7 @@ impl_bits_for! {
 
 macro_rules! impl_ref_for {
 	( $( $t:ty ),* ) => { $(
+#[doc(hidden)]
 impl<C> AsMut<BitSlice<C, $t>> for $t
 where C: Cursor {
 	#[inline]
@@ -232,6 +233,7 @@ where C: Cursor {
 	}
 }
 
+#[doc(hidden)]
 impl<C> AsRef<BitSlice<C, $t>> for $t
 where C: Cursor {
 	#[inline]
@@ -240,6 +242,7 @@ where C: Cursor {
 	}
 }
 
+#[doc(hidden)]
 impl<C> AsMut<BitSlice<C, $t>> for [$t]
 where C: Cursor {
 	#[inline]
@@ -248,6 +251,7 @@ where C: Cursor {
 	}
 }
 
+#[doc(hidden)]
 impl<C> AsRef<BitSlice<C, $t>> for [$t]
 where C: Cursor {
 	#[inline]
@@ -256,6 +260,7 @@ where C: Cursor {
 	}
 }
 
+#[doc(hidden)]
 impl<C> AsMut<BitSlice<C, $t>> for [$t; 0]
 where C: Cursor {
 	#[inline]
@@ -264,6 +269,7 @@ where C: Cursor {
 	}
 }
 
+#[doc(hidden)]
 impl<C> AsRef<BitSlice<C, $t>> for [$t; 0]
 where C: Cursor {
 	#[inline]
@@ -281,6 +287,7 @@ impl_ref_for! { array $t ;
 	)* };
 
 	( array $t:ty ; $( $n:expr )* ) => { $(
+#[doc(hidden)]
 impl<C> AsMut<BitSlice<C, $t>> for [$t; $n]
 where C: Cursor {
 	#[inline]
@@ -289,6 +296,7 @@ where C: Cursor {
 	}
 }
 
+#[doc(hidden)]
 impl<C> AsRef<BitSlice<C, $t>> for [$t; $n]
 where C: Cursor {
 	#[inline]

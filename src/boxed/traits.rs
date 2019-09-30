@@ -203,7 +203,8 @@ where C: Cursor, T: BitStore {
 
 impl<C, T> Hash for BitBox<C, T>
 where C: Cursor, T: BitStore {
-	fn hash<H: Hasher>(&self, hasher: &mut H) {
+	fn hash<H>(&self, hasher: &mut H)
+	where H: Hasher {
 		self.as_bits().hash(hasher)
 	}
 }

@@ -108,36 +108,8 @@ where C: Cursor, T: BitStore,
 	}
 }
 
-/** Performs the Boolean `AND` operation against another bitstream and writes
-the result into `self`. If the other bitstream ends before `self,`, the
-remaining bits of `self` are cleared.
-
-# Type Parameters
-
-- `I: IntoIterator<Item=bool>`: A stream of bits, which may be a `BitSlice` or
-  some other bit producer as desired.
-**/
 impl<C, T, I> BitAndAssign<I> for BitSlice<C, T>
 where C: Cursor, T: BitStore, I: IntoIterator<Item=bool> {
-	/// `AND`s a bitstream into a slice.
-	///
-	/// # Parameters
-	///
-	/// - `&mut self`
-	/// - `rhs`: The bitstream to `AND` into `self`.
-	///
-	/// # Examples
-	///
-	/// ```rust
-	/// use bitvec::prelude::*;
-	///
-	/// let mut store = [0b0101_0100u8];
-	/// let     other = [0b0011_0000u8];
-	/// let lhs = store.bits_mut::<BigEndian>();
-	/// let rhs = other.bits::<BigEndian>();
-	/// lhs[.. 6] &= &rhs[.. 4];
-	/// assert_eq!(store[0], 0b0001_0000);
-	/// ```
 	fn bitand_assign(&mut self, rhs: I) {
 		use core::iter;
 		rhs.into_iter()
@@ -151,36 +123,8 @@ where C: Cursor, T: BitStore, I: IntoIterator<Item=bool> {
 	}
 }
 
-/** Performs the Boolean `OR` operation against another bitstream and writes the
-result into `self`. If the other bitstream ends before `self`, the remaining
-bits of `self` are not affected.
-
-# Type Parameters
-
-- `I: IntoIterator<Item=bool>`: A stream of bits, which may be a `BitSlice` or
-  some other bit producer as desired.
-**/
 impl<C, T, I> BitOrAssign<I> for BitSlice<C, T>
 where C: Cursor, T: BitStore, I: IntoIterator<Item=bool> {
-	/// `OR`s a bitstream into a slice.
-	///
-	/// # Parameters
-	///
-	/// - `&mut self`
-	/// - `rhs`: The bitstream to `OR` into `self`.
-	///
-	/// # Examples
-	///
-	/// ```rust
-	/// use bitvec::prelude::*;
-	///
-	/// let mut store = [0b0101_0100u8];
-	/// let     other = [0b0011_0000u8];
-	/// let lhs = store.bits_mut::<BigEndian>();
-	/// let rhs = other.bits::<BigEndian>();
-	/// lhs[.. 6] |= &rhs[.. 4];
-	/// assert_eq!(store[0], 0b0111_0100);
-	/// ```
 	fn bitor_assign(&mut self, rhs: I) {
 		rhs.into_iter()
 			.enumerate()
@@ -192,36 +136,8 @@ where C: Cursor, T: BitStore, I: IntoIterator<Item=bool> {
 	}
 }
 
-/** Performs the Boolean `XOR` operation against another bitstream and writes
-the result into `self`. If the other bitstream ends before `self`, the remaining
-bits of `self` are not affected.
-
-# Type Parameters
-
-- `I: IntoIterator<Item=bool>`: A stream of bits, which may be a `BitSlice` or
-  some other bit producer as desired.
-**/
 impl<C, T, I> BitXorAssign<I> for BitSlice<C, T>
 where C: Cursor, T: BitStore, I: IntoIterator<Item=bool> {
-	/// `XOR`s a bitstream into a slice.
-	///
-	/// # Parameters
-	///
-	/// - `&mut self`
-	/// - `rhs`: The bitstream to `XOR` into `self`.
-	///
-	/// # Examples
-	///
-	/// ```rust
-	/// use bitvec::prelude::*;
-	///
-	/// let mut store = [0b0101_0100u8];
-	/// let     other = [0b0011_0000u8];
-	/// let lhs = store.bits_mut::<BigEndian>();
-	/// let rhs = other.bits::<BigEndian>();
-	/// lhs[.. 6] ^= &rhs[.. 4];
-	/// assert_eq!(store[0], 0b0110_0100);
-	/// ```
 	fn bitxor_assign(&mut self, rhs: I) {
 		rhs.into_iter()
 			.enumerate()

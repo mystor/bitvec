@@ -20,35 +20,8 @@ use core::{
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 
-/** Extends a `BitVec` with the contents of another bitstream.
-
-At present, this just calls `.push()` in a loop. When specialization becomes
-available, it will be able to more intelligently perform bulk moves from the
-source into `self` when the source is `BitSlice`-compatible.
-**/
 impl<C, T> Extend<bool> for BitVec<C, T>
 where C: Cursor, T: BitStore {
-	/// Extends a `BitVec` from another bitstream.
-	///
-	/// # Parameters
-	///
-	/// - `&mut self`
-	/// - `src`: A source bitstream.
-	///
-	/// # Type Parameters
-	///
-	/// - `I: IntoIterator<Item=bool>`: The source bitstream with which to
-	///   extend `self`.
-	///
-	/// # Examples
-	///
-	/// ```rust
-	/// use bitvec::prelude::*;
-	///
-	/// let mut bv = bitvec![0; 4];
-	/// bv.extend(bitvec![1; 4]);
-	/// assert_eq!(0x0F, bv.as_slice()[0]);
-	/// ```
 	fn extend<I: IntoIterator<Item=bool>>(&mut self, src: I) {
 		let iter = src.into_iter();
 		match iter.size_hint() {
@@ -59,24 +32,8 @@ where C: Cursor, T: BitStore {
 	}
 }
 
-/// Permits the construction of a `BitVec` by using `.collect()` on an iterator
-/// of `bool`.
 impl<C, T> FromIterator<bool> for BitVec<C, T>
 where C: Cursor, T: BitStore {
-	/// Collects an iterator of `bool` into a vector.
-	///
-	/// # Examples
-	///
-	/// ```rust
-	/// use bitvec::prelude::*;
-	///
-	/// use std::iter::repeat;
-	/// let bv: BitVec = repeat(true)
-	///   .take(4)
-	///   .chain(repeat(false).take(4))
-	///   .collect();
-	/// assert_eq!(bv.as_slice()[0], 0xF0);
-	/// ```
 	fn from_iter<I: IntoIterator<Item=bool>>(src: I) -> Self {
 		let iter = src.into_iter();
 		let mut bv = match iter.size_hint() {
@@ -91,31 +48,11 @@ where C: Cursor, T: BitStore {
 	}
 }
 
-/** Produces an iterator over all the bits in the vector.
-
-This iterator follows the ordering in the vector type, and implements
-`ExactSizeIterator`, since `BitVec`s always know exactly how large they are, and
-`DoubleEndedIterator`, since they have known ends.
-**/
 impl<C, T> IntoIterator for BitVec<C, T>
 where C: Cursor, T: BitStore {
 	type Item = bool;
 	type IntoIter = IntoIter<C, T>;
 
-	/// Iterates over the vector.
-	///
-	/// # Examples
-	///
-	/// ```rust
-	/// use bitvec::prelude::*;
-	///
-	/// let bv = bitvec![BigEndian, u8; 1, 1, 1, 1, 0, 0, 0, 0];
-	/// let mut count = 0;
-	/// for bit in bv {
-	///   if bit { count += 1; }
-	/// }
-	/// assert_eq!(count, 4);
-	/// ```
 	fn into_iter(self) -> Self::IntoIter {
 		IntoIter {
 			region: self.bitptr,
@@ -134,17 +71,7 @@ where C: Cursor, T: 'a + BitStore {
 	}
 }
 
-/** State keeper for draining iteration.
-
-# Type Parameters
-
-- `C: Cursor`: The cursor type of the underlying vector.
-- `T: 'a + BitStore`: The storage type of the underlying vector.
-
-# Lifetimes
-
-- `'a`: The lifetime of the underlying vector.
-**/
+/// State keeper for draining iteration.
 pub struct Drain<'a, C, T>
 where C: Cursor, T: 'a + BitStore {
 	/// Pointer to the `BitVec` being drained.
@@ -320,27 +247,6 @@ impl<C, T> Iterator for IntoIter<C, T>
 where C: Cursor, T: BitStore {
 	type Item = bool;
 
-	/// Advances the iterator by one, returning the first bit in it (if any).
-	///
-	/// # Parameters
-	///
-	/// - `&mut self`
-	///
-	/// # Returns
-	///
-	/// The leading bit in the iterator, if any.
-	///
-	/// # Examples
-	///
-	/// ```rust
-	/// use bitvec::prelude::*;
-	///
-	/// let bv = bitvec![1, 0];
-	/// let mut iter = bv.iter();
-	/// assert!(iter.next().unwrap());
-	/// assert!(!iter.next().unwrap());
-	/// assert!(iter.next().is_none());
-	/// ```
 	fn next(&mut self) -> Option<Self::Item> {
 		let mut slice_iter = self.iterator();
 		let out = slice_iter.next();
@@ -348,91 +254,14 @@ where C: Cursor, T: BitStore {
 		out
 	}
 
-	/// Hints at the number of bits remaining in the iterator.
-	///
-	/// Because the exact size is always known, this always produces
-	/// `(len, Some(len))`.
-	///
-	/// # Parameters
-	///
-	/// - `&self`
-	///
-	/// # Returns
-	///
-	/// - `usize`: The minimum bits remaining.
-	/// - `Option<usize>`: The maximum bits remaining.
-	///
-	/// # Examples
-	///
-	/// ```rust
-	/// use bitvec::prelude::*;
-	///
-	/// let bv = bitvec![0, 1];
-	/// let mut iter = bv.iter();
-	/// assert_eq!(iter.size_hint(), (2, Some(2)));
-	/// iter.next();
-	/// assert_eq!(iter.size_hint(), (1, Some(1)));
-	/// iter.next();
-	/// assert_eq!(iter.size_hint(), (0, Some(0)));
-	/// ```
 	fn size_hint(&self) -> (usize, Option<usize>) {
 		self.iterator().size_hint()
 	}
 
-	/// Counts how many bits are live in the iterator, consuming it.
-	///
-	/// You are probably looking to use this on a borrowed iterator rather than
-	/// an owning iterator. See [`BitSlice`].
-	///
-	/// # Parameters
-	///
-	/// - `self`
-	///
-	/// # Returns
-	///
-	/// The number of bits in the iterator.
-	///
-	/// # Examples
-	///
-	/// ```rust
-	/// use bitvec::prelude::*;
-	/// let bv = bitvec![BigEndian, u8; 0, 1, 0, 1, 0];
-	/// assert_eq!(bv.into_iter().count(), 5);
-	/// ```
-	///
-	/// [`BitSlice`]: ../struct.BitSlice.html#method.iter
 	fn count(self) -> usize {
 		self.bitvec.len()
 	}
 
-	/// Advances the iterator by `n` bits, starting from zero.
-	///
-	/// # Parameters
-	///
-	/// - `&mut self`
-	/// - `n`: The number of bits to skip, before producing the next bit after
-	///   skips. If this overshoots the iterator’s remaining length, then the
-	///   iterator is marked empty before returning `None`.
-	///
-	/// # Returns
-	///
-	/// If `n` does not overshoot the iterator’s bounds, this produces the `n`th
-	/// bit after advancing the iterator to it, discarding the intermediate
-	/// bits.
-	///
-	/// If `n` does overshoot the iterator’s bounds, this empties the iterator
-	/// and returns `None`.
-	///
-	/// # Examples
-	///
-	/// ```rust
-	/// use bitvec::prelude::*;
-	/// let bv = bitvec![BigEndian, u8; 0, 0, 0, 1];
-	/// let mut iter = bv.into_iter();
-	/// assert_eq!(iter.len(), 4);
-	/// assert!(iter.nth(3).unwrap());
-	/// assert!(iter.nth(0).is_none());
-	/// ```
 	fn nth(&mut self, n: usize) -> Option<Self::Item> {
 		let mut slice_iter = self.iterator();
 		let out = slice_iter.nth(n);
@@ -440,22 +269,6 @@ where C: Cursor, T: BitStore {
 		out
 	}
 
-	/// Consumes the iterator, returning only the last bit.
-	///
-	/// # Examples
-	///
-	/// ```rust
-	/// use bitvec::prelude::*;
-	/// let bv = bitvec![BigEndian, u8; 0, 0, 0, 1];
-	/// assert!(bv.into_iter().last().unwrap());
-	/// ```
-	///
-	/// Empty iterators return `None`
-	///
-	/// ```rust
-	/// use bitvec::prelude::*;
-	/// assert!(bitvec![].into_iter().last().is_none());
-	/// ```
 	fn last(mut self) -> Option<Self::Item> {
 		self.next_back()
 	}
@@ -476,7 +289,9 @@ Only the removed segment is available for iteration.
 **/
 pub struct Splice<'a, C, T, I>
 where C: Cursor, T: 'a + BitStore, I: Iterator<Item=bool> {
+	/// Manager for the region to be drained from the vector.
 	pub(super) drain: Drain<'a, C, T>,
+	/// Bit stream to insert into the drain region.
 	pub(super) splice: I,
 }
 

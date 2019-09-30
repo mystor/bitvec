@@ -36,6 +36,8 @@ elements as a slice.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#![deny(missing_docs)]
+
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
@@ -69,23 +71,6 @@ pub mod vec;
 
 #[cfg(feature = "serde")]
 mod serdes;
-
-/// Expose crate internals for use in doctests and external tests.
-#[cfg(feature = "testing")]
-pub mod testing {
-	pub use crate::{
-		access::*,
-		bits::*,
-		boxed::*,
-		cursor::*,
-		domain::*,
-		macros::*,
-		pointer::*,
-		slice::*,
-		store::*,
-		vec::*,
-	};
-}
 
 /** Perform single-bit ripple-carry addition.
 

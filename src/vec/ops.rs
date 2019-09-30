@@ -147,51 +147,18 @@ where C: Cursor, T: BitStore {
 	}
 }
 
-/** Performs the Boolean `AND` operation between each element of a `BitVec` and
-anything that can provide a stream of `bool` values (such as another `BitVec`,
-or any `bool` generator of your choice). The `BitVec` emitted will have the
-length of the shorter sequence of bits -- if one is longer than the other, the
-extra bits will be ignored.
-**/
 impl<C, T, I> BitAnd<I> for BitVec<C, T>
 where C: Cursor, T: BitStore, I: IntoIterator<Item=bool> {
 	type Output = Self;
 
-	/// `AND`s a vector and a bitstream, producing a new vector.
-	///
-	/// # Examples
-	///
-	/// ```rust
-	/// use bitvec::prelude::*;
-	///
-	/// let lhs = bitvec![BigEndian, u8; 0, 1, 0, 1];
-	/// let rhs = bitvec![BigEndian, u8; 0, 0, 1, 1];
-	/// let and = lhs & rhs;
-	/// assert_eq!("[0001]", &format!("{}", and));
-	/// ```
 	fn bitand(mut self, rhs: I) -> Self::Output {
 		self &= rhs;
 		self
 	}
 }
 
-/** Performs the Boolean `AND` operation in place on a `BitVec`, using a stream
-of `bool` values as the other bit for each operation. If the other stream is
-shorter than `self`, `self` will be truncated when the other stream expires.
-**/
 impl<C, T, I> BitAndAssign<I> for BitVec<C, T>
 where C: Cursor, T: BitStore, I: IntoIterator<Item=bool> {
-	/// `AND`s another bitstream into a vector.
-	///
-	/// # Examples
-	///
-	/// ```rust
-	/// use bitvec::prelude::*;
-	///
-	/// let mut src  = bitvec![BigEndian, u8; 0, 1, 0, 1];
-	///         src &= bitvec![BigEndian, u8; 0, 0, 1, 1];
-	/// assert_eq!("[0001]", &format!("{}", src));
-	/// ```
 	fn bitand_assign(&mut self, rhs: I) {
 		// let mut len = 0;
 		// for (idx, other) in (0 .. self.len()).zip(rhs.into_iter()) {
@@ -208,58 +175,19 @@ where C: Cursor, T: BitStore, I: IntoIterator<Item=bool> {
 	}
 }
 
-/** Performs the Boolean `OR` operation between each element of a `BitVec` and
-anything that can provide a stream of `bool` values (such as another `BitVec`,
-or any `bool` generator of your choice). The `BitVec` emitted will have the
-length of the shorter sequence of bits -- if one is longer than the other, the
-extra bits will be ignored.
-**/
 impl<C, T, I> BitOr<I> for BitVec<C, T>
 where C: Cursor, T: BitStore, I: IntoIterator<Item=bool> {
 	type Output = Self;
 
-	/// `OR`s a vector and a bitstream, producing a new vector.
-	///
-	/// # Examples
-	///
-	/// ```rust
-	/// use bitvec::prelude::*;
-	///
-	/// let lhs = bitvec![0, 1, 0, 1];
-	/// let rhs = bitvec![0, 0, 1, 1];
-	/// let or  = lhs | rhs;
-	/// assert_eq!("[0111]", &format!("{}", or));
-	/// ```
 	fn bitor(mut self, rhs: I) -> Self::Output {
 		self |= rhs;
 		self
 	}
 }
 
-/** Performs the Boolean `OR` operation in place on a `BitVec`, using a stream
-of `bool` values as the other bit for each operation. If the other stream is
-shorter than `self`, `self` will be truncated when the other stream expires.
-**/
 impl<C, T, I> BitOrAssign<I> for BitVec<C, T>
 where C: Cursor, T: BitStore, I: IntoIterator<Item=bool> {
-	/// `OR`s another bitstream into a vector.
-	///
-	/// # Examples
-	///
-	/// ```rust
-	/// use bitvec::prelude::*;
-	///
-	/// let mut src  = bitvec![0, 1, 0, 1];
-	///         src |= bitvec![0, 0, 1, 1];
-	/// assert_eq!("[0111]", &format!("{}", src));
-	/// ```
 	fn bitor_assign(&mut self, rhs: I) {
-		// let mut len = 0;
-		// for (idx, other) in (0 .. self.len()).zip(rhs.into_iter()) {
-		// 	let val = self[idx] | other;
-		// 	self.set(idx, val);
-		// 	len += 1;
-		// }
 		let len = rhs.into_iter()
 			.take(self.len())
 			.enumerate()
@@ -269,58 +197,19 @@ where C: Cursor, T: BitStore, I: IntoIterator<Item=bool> {
 	}
 }
 
-/** Performs the Boolean `XOR` operation between each element of a `BitVec` and
-anything that can provide a stream of `bool` values (such as another `BitVec`,
-or any `bool` generator of your choice). The `BitVec` emitted will have the
-length of the shorter sequence of bits -- if one is longer than the other, the
-extra bits will be ignored.
-**/
 impl<C, T, I> BitXor<I> for BitVec<C, T>
 where C: Cursor, T: BitStore, I: IntoIterator<Item=bool> {
 	type Output = Self;
 
-	/// `XOR`s a vector and a bitstream, producing a new vector.
-	///
-	/// # Examples
-	///
-	/// ```rust
-	/// use bitvec::prelude::*;
-	///
-	/// let lhs = bitvec![0, 1, 0, 1];
-	/// let rhs = bitvec![0, 0, 1, 1];
-	/// let xor = lhs ^ rhs;
-	/// assert_eq!("[0110]", &format!("{}", xor));
-	/// ```
 	fn bitxor(mut self, rhs: I) -> Self::Output {
 		self ^= rhs;
 		self
 	}
 }
 
-/** Performs the Boolean `XOR` operation in place on a `BitVec`, using a stream
-of `bool` values as the other bit for each operation. If the other stream is
-shorter than `self`, `self` will be truncated when the other stream expires.
-**/
 impl<C, T, I> BitXorAssign<I> for BitVec<C, T>
 where C: Cursor, T: BitStore, I: IntoIterator<Item=bool> {
-	/// `XOR`s another bitstream into a vector.
-	///
-	/// # Examples
-	///
-	/// ```rust
-	/// use bitvec::prelude::*;
-	///
-	/// let mut src  = bitvec![0, 1, 0, 1];
-	///         src ^= bitvec![0, 0, 1, 1];
-	/// assert_eq!("[0110]", &format!("{}", src));
-	/// ```
 	fn bitxor_assign(&mut self, rhs: I) {
-		// let mut len = 0;
-		// for (idx, other) in (0 .. self.len()).zip(rhs.into_iter()) {
-		// 	let val = self[idx] ^ other;
-		// 	self.set(idx, val);
-		// 	len += 1;
-		// }
 		let len = rhs.into_iter()
 			.take(self.len())
 			.enumerate()
@@ -330,58 +219,24 @@ where C: Cursor, T: BitStore, I: IntoIterator<Item=bool> {
 	}
 }
 
-/** Reborrows the `BitVec` as a `BitSlice`.
-
-This mimics the separation between `Vec<T>` and `[T]`.
-**/
 impl<C, T> Deref for BitVec<C, T>
 where C: Cursor, T: BitStore {
 	type Target = BitSlice<C, T>;
 
-	/// Dereferences `&BitVec` down to `&BitSlice`.
-	///
-	/// # Examples
-	///
-	/// ```rust
-	/// use bitvec::prelude::*;
-	///
-	/// let bv: BitVec = bitvec![1; 4];
-	/// let bref: &BitSlice = &bv;
-	/// assert!(bref[2]);
-	/// ```
 	fn deref(&self) -> &Self::Target {
 		self.as_bits()
 	}
 }
 
-/** Mutably reborrows the `BitVec` as a `BitSlice`.
-
-This mimics the separation between `Vec<T>` and `[T]`.
-**/
 impl<C, T> DerefMut for BitVec<C, T>
 where C: Cursor, T: BitStore {
-	/// Dereferences `&mut BitVec` down to `&mut BitSlice`.
-	///
-	/// # Examples
-	///
-	/// ```rust
-	/// use bitvec::prelude::*;
-	///
-	/// let mut bv: BitVec = bitvec![0; 6];
-	/// let bref: &mut BitSlice = &mut bv;
-	/// assert!(!bref[5]);
-	/// bref.set(5, true);
-	/// assert!(bref[5]);
-	/// ```
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		self.as_bits_mut()
 	}
 }
 
-/// Readies the underlying storage for Drop.
 impl<C, T> Drop for BitVec<C, T>
 where C: Cursor, T: BitStore {
-	/// Rebuild the interior `Vec` and let it run the deallocator.
 	fn drop(&mut self) {
 		let bp = mem::replace(&mut self.bitptr, BitPtr::empty());
 		//  Build a Vec<T> out of the elements, and run its destructor.
@@ -390,8 +245,6 @@ where C: Cursor, T: BitStore {
 	}
 }
 
-/// Gets the bit at a specific index. The index must be less than the length of
-/// the `BitVec`.
 impl<C, T> Index<usize> for BitVec<C, T>
 where C: Cursor, T: BitStore {
 	type Output = bool;
@@ -561,22 +414,10 @@ where C: Cursor, T: BitStore {
 	}
 }
 
-/// Flips all bits in the vector.
 impl<C, T> Not for BitVec<C, T>
 where C: Cursor, T: BitStore {
 	type Output = Self;
 
-	/// Inverts all bits in the vector.
-	///
-	/// # Examples
-	///
-	/// ```rust
-	/// use bitvec::prelude::*;
-	///
-	/// let bv: BitVec<BigEndian, u32> = BitVec::from(&[0u32] as &[u32]);
-	/// let flip = !bv;
-	/// assert_eq!(!0u32, flip.as_slice()[0]);
-	/// ```
 	fn not(mut self) -> Self::Output {
 		//  Because `BitVec` will never have its partial tail observable by any
 		//  other binding, it is free to use fast element-wise inversion for the
