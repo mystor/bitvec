@@ -295,3 +295,56 @@ where C: Cursor, T: BitStore {
 		self.as_bits_mut().shr_assign(shamt);
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use crate::prelude::*;
+
+	#[test]
+	fn arith() {
+		let a = bitbox![0, 1, 1, 0];
+		let b = bitbox![1, 0, 0, 1];
+		assert_eq!(a.clone() + b, bitbox![1; 4]);
+
+		assert_eq!(-bitbox![1; 4], bitbox![0, 0, 0, 1]);
+
+		assert_eq!(a.clone() << 1, bitbox![1, 1, 0, 0]);
+		assert_eq!(a.clone() >> 1, bitbox![0, 0, 1, 1]);
+	}
+
+	#[test]
+	fn bit_arith() {
+		let a = bitbox![0, 1, 0, 1];
+		let b = bitbox![0, 0, 1, 1];
+
+		assert_eq!(a.clone() & b.clone(), bitbox![0, 0, 0, 1]);
+		assert_eq!(a.clone() | b.clone(), bitbox![0, 1, 1, 1]);
+		assert_eq!(a.clone() ^ b.clone(), bitbox![0, 1, 1, 0]);
+		assert_eq!(!a, bitbox![1, 0, 1, 0]);
+	}
+
+	#[test]
+	fn index() {
+		let mut bits = bitbox![0, 0, 1, 0, 0];
+
+		assert!(bits[2]);
+
+		assert_eq!(bits[1 .. 4], bitbox![0, 1, 0]);
+		assert_eq!(&mut bits[1 .. 4], &mut bitbox![0, 1, 0]);
+
+		assert_eq!(bits[2 ..], bitbox![1, 0, 0]);
+		assert_eq!(&mut bits[2 ..], &mut bitbox![1, 0, 0]);
+
+		assert_eq!(bits[..], bitbox![0, 0, 1, 0, 0]);
+		assert_eq!(&mut bits[..], &mut bitbox![0, 0, 1, 0, 0]);
+
+		assert_eq!(bits[1 ..= 3], bitbox![0, 1, 0]);
+		assert_eq!(&mut bits[1 ..= 3], &mut bitbox![0, 1, 0]);
+
+		assert_eq!(bits[.. 3], bitbox![0, 0, 1]);
+		assert_eq!(&mut bits[.. 3], &mut bitbox![0, 0, 1]);
+
+		assert_eq!(bits[..= 2], bitbox![0, 0, 1]);
+		assert_eq!(&mut bits[..= 2], &mut bitbox![0, 0, 1]);
+	}
+}

@@ -88,7 +88,7 @@ impl<'a, C, T> Drain<'a, C, T>
 where C: Cursor, T: 'a + BitStore {
 	/// Fills the drain span with another iterator.
 	///
-	/// If the stream exhausts before the drain is filled, then the tail
+	/// If the source exhausts before the drain is filled, then the tail
 	/// elements move downwards; otherwise, the tail stays put and the drain is
 	/// filled.
 	///
@@ -104,23 +104,24 @@ where C: Cursor, T: 'a + BitStore {
 	///
 	/// # Type Parameters
 	///
-	/// - `I: Iterator<Item=bool>`: A provider of bits.
-	unsafe fn fill<I: Iterator<Item=bool>>(&mut self, stream: &mut I) -> bool {
-		let bv = self.bitvec.as_mut();
+	/// - `I`: Any provider of bits.
+	fn fill<I>(&mut self, stream: &mut I) -> bool
+	where I: Iterator<Item = bool> {
+		let bv = unsafe { self.bitvec.as_mut() };
 		let drain_from = bv.len();
 		let drain_upto = self.tail_start;
 
 		for n in drain_from .. drain_upto {
 			if let Some(bit) = stream.next() {
 				bv.push(bit);
+				continue;
 			}
-			else {
-				for (to, from) in (n .. n + self.tail_len).zip(drain_upto ..) {
-					bv.swap(from, to);
-				}
-				self.tail_start = n;
-				return false;
+			//  The source has exhausted; move the tail region downwards.
+			for (to, from) in (n .. n + self.tail_len).zip(drain_upto ..) {
+				unsafe { bv.copy(from, to); }
 			}
+			self.tail_start = n;
+			return false;
 		}
 		true
 	}
@@ -131,18 +132,19 @@ where C: Cursor, T: 'a + BitStore {
 	///
 	/// - `&mut self`
 	/// - `by`: The amount by which to move the tail span.
-	unsafe fn move_tail(&mut self, by: usize) {
-		let bv = self.bitvec.as_mut();
+	fn move_tail(&mut self, by: usize) {
+		let bv = unsafe { self.bitvec.as_mut() };
 		bv.reserve(by);
 		let new_tail = self.tail_start + by;
 		let old_len = bv.len();
 		let new_len = self.tail_start + self.tail_len + by;
 
-		bv.set_len(new_len);
+		unsafe { bv.set_len(new_len); }
+		//  Move the bits backward to put them in the new tail region.
 		for n in (0 .. self.tail_len).rev() {
-			bv.swap(self.tail_start + n, new_tail + n);
+			unsafe { bv.copy(self.tail_start + n, new_tail + n); }
 		}
-		bv.set_len(old_len);
+		unsafe { bv.set_len(old_len); }
 
 		self.tail_start = new_tail;
 	}
@@ -203,7 +205,7 @@ where C: Cursor, T: 'a + BitStore {
 		bv.set_len(full_len);
 		//  Swap the remnant span down into the drained span,
 		for (from, to) in (tail .. full_len).zip(start .. end_len) {
-			bv.swap(from, to);
+			bv.copy(from, to);
 		}
 		//  And deflate the vector to fit.
 		bv.set_len(end_len);
@@ -378,4 +380,48 @@ where C: Cursor, T: 'a + BitStore, I: Iterator<Item=bool> {
 		}
 		//  Drain::drop does the rest
 	} }
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::{
+		cursor::BigEndian,
+	};
+
+	/// This test exists specifically to hit an arm of the `fn extend` match
+	/// that is usually missed.
+	#[test]
+	fn floor_no_ceil() {
+		let _ = bitvec![0; 5].extend(lower_only(5));
+		let _ = lower_only(10).collect::<BitVec<BigEndian, u32>>();
+	}
+
+	#[test]
+	fn into_iter() {
+		let _ = (&bitvec![0; 10]).into_iter();
+	}
+
+	fn lower_only(n: usize) -> LowerOnly<impl Iterator<Item = bool>, bool> {
+		LowerOnly {
+			inner: core::iter::repeat(true).take(n)
+		}
+	}
+
+	struct LowerOnly<I, T>
+	where I: Iterator<Item = T> {
+		inner: I,
+	}
+
+	impl<I, T> Iterator for LowerOnly<I, T>
+	where I: Iterator<Item = T> {
+		type Item = T;
+		fn next(&mut self) -> Option<Self::Item> {
+			self.inner.next()
+		}
+
+		fn size_hint(&self) -> (usize, Option<usize>) {
+			(self.inner.size_hint().0, None)
+		}
+	}
 }

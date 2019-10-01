@@ -29,3 +29,14 @@ where C: Cursor, T: 'a + BitStore {
 		self.as_bits().into_iter()
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use crate::prelude::*;
+
+	#[test]
+	fn into_iter() {
+		assert_eq!(bitbox![0; 9].into_iter().count(), 9);
+		assert_eq!((&bitbox![0; 9]).into_iter().count(), 9);
+	}
+}
