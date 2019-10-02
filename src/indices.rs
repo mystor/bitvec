@@ -321,25 +321,6 @@ where T: BitStore {
 
 impl<T> TailIdx<T>
 where T: BitStore {
-	/// Constructs a new tail marker.
-	///
-	/// This is only exporting under `testing` builds, in order to allow tests
-	/// to conveniently set up a tail index. It is never used within the crate
-	/// proper, and is not part of the public API of the crate at all.
-	///
-	/// # Parameters
-	///
-	/// - `tail`: The dead-bit index. This must be in the range `0 ..= T::BITS`.
-	///
-	/// # Returns
-	///
-	/// `tail` wrapped in the `TailIdx` encoding type.
-	#[cfg(any(test, feature = "testing"))]
-	#[inline]
-	pub fn new(tail: u8) -> Self {
-		tail.tail_idx()
-	}
-
 	/// Wraps `tail` in the `TailIdx` encoding type, without any bounds checks.
 	///
 	/// This is an internal-only function used to skip bounds checks when the
@@ -733,5 +714,40 @@ mod tests {
 		assert_eq!(8.tail_idx::<u8>().span(1), (1, 1.tail_idx()));
 		assert_eq!(8.tail_idx::<u8>().span(8), (1, 8.tail_idx()));
 		assert_eq!(8.tail_idx::<u8>().span(9), (2, 1.tail_idx()));
+	}
+
+	#[test]
+	fn idx_construction() {
+		fn make_all<T>()
+		where T: BitStore {
+			for n in 0 .. T::BITS {
+				unsafe { BitIdx::<T>::new_unchecked(n) };
+			}
+		}
+
+		make_all::<u8>();
+		make_all::<u16>();
+		make_all::<u32>();
+
+		#[cfg(target_pointer_width = "64")]
+		make_all::<u64>();
+	}
+
+	#[test]
+	fn idx_incr() {
+		fn check<T>()
+		where T: BitStore {
+			for n in 0 .. T::MASK {
+				assert_eq!(n.idx::<T>().incr(), ((n + 1).idx(), false));
+			}
+			assert_eq!(T::MASK.idx::<T>().incr(), (0.idx(), true));
+		}
+
+		check::<u8>();
+		check::<u16>();
+		check::<u32>();
+
+		#[cfg(target_pointer_width = "64")]
+		check::<u64>();
 	}
 }

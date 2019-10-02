@@ -303,8 +303,8 @@ mod tests {
 	#[test]
 	fn arith() {
 		let a = bitbox![0, 1, 1, 0];
-		let b = bitbox![1, 0, 0, 1];
-		assert_eq!(a.clone() + b, bitbox![1; 4]);
+
+		assert_eq!(a.clone() + bitbox![1, 0, 0, 1], bitbox![1; 4]);
 
 		assert_eq!(-bitbox![1; 4], bitbox![0, 0, 0, 1]);
 

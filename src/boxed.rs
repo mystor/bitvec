@@ -402,3 +402,37 @@ mod ops;
 mod traits;
 
 pub use iter::*;
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::prelude::*;
+
+	#[test]
+	fn ctors() {
+		assert_eq!(BitBox::<LittleEndian, u32>::empty().len(), 0);
+		assert_eq!(BitBox::<BigEndian, u8>::from_element(0u8).len(), 8);
+		assert_eq!(
+			BitBox::<BigEndian, u16>::from_boxed_slice(
+				vec![0u16, 1u16].into_boxed_slice()
+			).len(),
+			32,
+		);
+	}
+
+	#[test]
+	fn leak_patch() {
+		unsafe {
+			let box_ptr = bitbox![0; 10].into_raw();
+			BitBox::<BigEndian, _>::from_raw(box_ptr)
+		}.leak();
+	}
+
+	#[test]
+	fn misc() {
+		let a = bitbox![0, 1, 0, 1];
+		let b = bitbox![0, 0, 1, 1];
+		let c = a.add_reverse(b);
+		let _ = c.change_cursor::<LittleEndian>();
+	}
+}

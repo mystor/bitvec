@@ -2417,3 +2417,101 @@ mod ops;
 mod traits;
 
 pub use iter::*;
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::prelude::*;
+
+	#[test]
+	fn ctors() {
+		assert!(BitSlice::<BigEndian, u8>::empty().is_empty());
+		assert!(BitSlice::<LittleEndian, u16>::empty_mut().is_empty());
+		assert_eq!(BitSlice::<BigEndian, u32>::from_element(&0u32).len(), 32);
+		assert_eq!(BitSlice::<BigEndian, u32>::from_element_mut(&mut 0xFFFFFFFFu32).len(), 32);
+		assert_eq!(BitSlice::<BigEndian, u16>::from_slice(&[0u16, !0][..]).len(), 32);
+		assert_eq!(BitSlice::<BigEndian, u8>::from_slice_mut(&mut [0u8, !0]).len(), 16);
+	}
+
+	#[test]
+	fn access() {
+		let mut store = 128u8;
+
+		assert!(store.bits::<BigEndian>().first().unwrap());
+		let (head, rest) = store.bits::<BigEndian>().split_first().unwrap();
+		assert!(head);
+		assert!(rest.not_any());
+		let (_, rest) = store.bits_mut::<BigEndian>().split_first_mut().unwrap();
+		*rest.at(0) = true;
+		assert_eq!(store, 192u8);
+
+		assert!(store.bits::<LittleEndian>().last().unwrap());
+		let (tail, _) = store.bits::<LittleEndian>().split_last().unwrap();
+		assert!(tail);
+		let (_, rest) = store.bits_mut::<LittleEndian>().split_last_mut().unwrap();
+		*rest.at(0) = true;
+		assert_eq!(store, 193u8);
+
+		assert!(BitSlice::<BigEndian, u8>::empty().split_first().is_none());
+		assert!(BitSlice::<BigEndian, u8>::empty_mut().split_first_mut().is_none());
+		assert!(BitSlice::<BigEndian, u8>::empty().split_last().is_none());
+		assert!(BitSlice::<BigEndian, u8>::empty_mut().split_last_mut().is_none());
+	}
+
+	#[test]
+	fn pointer() {
+		let mut src = 1u16;
+
+		assert_eq!(src.bits::<LittleEndian>().as_ptr(), &src as *const u16);
+		assert_eq!(src.bits_mut::<BigEndian>().as_mut_ptr(), &mut src as *mut u16);
+	}
+
+	#[test]
+	fn misc() {
+		let mut src = 15u8;
+		src.bits_mut::<BigEndian>()[1 ..].reverse();
+		assert_eq!(src, 0b0111_1000);
+		src.bits_mut::<BigEndian>()[1 ..].reverse();
+
+		src = 0x3C;
+		let (head, tail) = src.bits::<BigEndian>().split_at(4);
+		assert!(head[3]);
+		assert!(tail[0]);
+
+		assert!(src.bits::<BigEndian>().starts_with(&src.bits::<LittleEndian>()[.. 4]));
+		assert!(src.bits::<BigEndian>().ends_with(&src.bits::<LittleEndian>()[4 ..]));
+
+		src = 0x0F;
+		src.bits_mut::<BigEndian>().rotate_right(2);
+		assert_eq!(src, 0b1100_0011);
+		src.bits_mut::<BigEndian>().rotate_left(4);
+		assert_eq!(src, 0b0011_1100);
+
+		src.bits_mut::<BigEndian>().rotate_left(8);
+		src.bits_mut::<BigEndian>().rotate_right(8);
+		assert_eq!(src, 0b0011_1100);
+	}
+
+	#[test]
+	fn query() {
+		let src = [0b0000_1111u8, !0, 0b1111_0000];
+		let bits = src.bits::<BigEndian>();
+
+		assert!(BitSlice::<BigEndian, u8>::empty().all());
+		assert!(bits[9 .. 15].all());
+		assert!(!bits[1 .. 4].all());
+		assert!(bits[4 .. 20].all());
+		assert!(!bits[2 .. 20].all());
+		assert!(!bits[4 .. 22].all());
+		assert!(!bits[.. 20].all());
+		assert!(!bits[4 ..].all());
+		assert!(!bits.all());
+
+		assert!(!BitSlice::<BigEndian, u8>::empty().any());
+		assert!(bits[9 .. 15].any());
+		assert!(bits[4 .. 20].any());
+		assert!(!bits[.. 4].any());
+		assert!(!bits[20 ..].any());
+		assert!(bits.any());
+	}
+}

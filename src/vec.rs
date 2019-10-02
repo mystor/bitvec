@@ -1163,7 +1163,7 @@ where C: Cursor, T: BitStore {
 		let from = match range.start_bound() {
 			Included(&n) => n,
 			Excluded(&n) => n + 1,
-			Unbounded   => 0,
+			Unbounded    => 0,
 		};
 		//  First index beyond the end of the drain.
 		let upto = match range.end_bound() {
@@ -1643,3 +1643,97 @@ mod ops;
 mod traits;
 
 pub use iter::*;
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::prelude::*;
+
+	#[test]
+	fn ctors() {
+		assert!(BitVec::<BigEndian, u8>::new().is_empty());
+		assert_eq!(BitVec::<LittleEndian, u16>::from_element(0x0123u16).len(), 16);
+		assert_eq!(BitVec::<BigEndian, u32>::from_vec(vec![0u32, 1u32]).len(), 64);
+	}
+
+	#[test]
+	fn alloc() {
+		let mut bv = bitvec![];
+		assert_eq!(bv.capacity(), 0);
+
+		bv.reserve(10);
+		assert!(bv.capacity() >= 10);
+
+		bv.reserve_exact(10);
+		assert!(bv.capacity() >= 10);
+
+		bv.shrink_to_fit();
+		assert_eq!(bv.capacity(), 0);
+	}
+
+	#[test]
+	fn misc() {
+		let mut bv = bitvec![0, 1, 0, 1];
+
+		assert!(bv.swap_remove(1));
+		assert_eq!(bv.len(), 3);
+		assert_eq!(bv, bitvec![0, 1, 0]);
+
+		bv.insert(1, true);
+		assert_eq!(bv.len(), 4);
+		assert_eq!(bv, bitvec![0, 1, 1, 0]);
+
+		assert!(bv.remove(2));
+		assert_eq!(bv.len(), 3);
+		assert_eq!(bv, bitvec![0, 1, 0]);
+
+		bv = bitvec![1, 1, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1];
+		bv.retain(|idx, _| is_fib(idx));
+		assert!(bv.all());
+		assert_eq!(bv.len(), 7);
+
+		assert!(bitvec![].pop().is_none());
+
+		let mut bv2 = bitvec![0; 10];
+		bv.append(&mut bv2);
+		assert_eq!(bv.len(), 17);
+		assert!(bv2.is_empty());
+
+		bv.drain(5 .. 10);
+		bv.drain(..= 1);
+		bv.drain(9 ..);
+		assert_eq!(bv.len(), 9);
+		assert_eq!(bv, bitvec![1, 1, 1, 0, 0, 0, 0, 0, 0]);
+
+		let bv2 = bv.split_off(3);
+		assert!(bv.all());
+		assert!(bv2.not_any());
+
+		bv.resize(10, true);
+		assert!(bv.all());
+		assert_eq!(bv.len(), 10);
+
+		bv.splice(3 .. 7, bitvec![0; 2]);
+		assert_eq!(bv, bitvec![1, 1, 1, 0, 0, 1, 1, 1]);
+
+		let a = bitvec![0, 1, 0, 1];
+		let b = bitvec![0, 0, 1, 1];
+		assert_eq!(a.add_reverse(b), bitvec![0, 1, 1, 0, 1]);
+
+		let a = BitVec::<BigEndian, u8>::from_element(128u8);
+		assert!(a[0]);
+		let mut b = a.change_cursor::<LittleEndian>();
+		assert!(!b[0]);
+
+		b.force_align();
+
+		let _ = b.into_vec();
+
+		fn is_fib(n: usize) -> bool {
+			match n {
+				0 | 1 | 2 | 3 | 5 | 8 | 13 => true,
+				_ => false,
+			}
+		}
+	}
+}

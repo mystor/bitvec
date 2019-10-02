@@ -169,7 +169,7 @@ where C: Cursor, T: BitStore, I: IntoIterator<Item=bool> {
 		let len = rhs.into_iter()
 			.take(self.len())
 			.enumerate()
-			.flat_map(|(i, r)| self.get(i).map(|l| self.set(i, l & r)))
+			.map(|(idx, bit)| *self.at(idx) &= bit)
 			.count();
 		self.truncate(len);
 	}
@@ -191,7 +191,7 @@ where C: Cursor, T: BitStore, I: IntoIterator<Item=bool> {
 		let len = rhs.into_iter()
 			.take(self.len())
 			.enumerate()
-			.flat_map(|(i, r)| self.get(i).map(|l| self.set(i, l | r)))
+			.map(|(idx, bit)| *self.at(idx) |= bit)
 			.count();
 		self.truncate(len);
 	}
@@ -213,7 +213,7 @@ where C: Cursor, T: BitStore, I: IntoIterator<Item=bool> {
 		let len = rhs.into_iter()
 			.take(self.len())
 			.enumerate()
-			.flat_map(|(i, r)| self.get(i).map(|l| self.set(i, l ^ r)))
+			.map(|(idx, bit)| *self.at(idx) ^= bit)
 			.count();
 		self.truncate(len);
 	}
@@ -801,5 +801,64 @@ where C: Cursor, T: BitStore {
 		if self.len() > old {
 			*self <<= 1;
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use crate::prelude::*;
+
+	#[test]
+	fn arith() {
+		let a = bitvec![0, 1, 1, 0];
+
+		assert_eq!(a.clone() + bitvec![1, 0, 0, 1], bitvec![1; 4]);
+		assert_eq!(a.clone() + bitvec![1; 5], bitvec![1, 0, 0, 1, 0, 1]);
+		assert_eq!(a.clone() - bitvec![0, 0, 1], bitvec![0, 1, 0, 1]);
+		assert_eq!(a.clone() - bitvec![0, 0, 0, 0, 1], bitvec![0, 0, 1, 0, 1]);
+		assert_eq!(a.clone() - bitvec![0; 8], a);
+
+		assert_eq!(-bitvec![1; 4], bitvec![0, 0, 0, 1]);
+		assert_eq!(-bitvec![0; 4], bitvec![0; 4]);
+
+		assert_eq!(a.clone() << 1, bitvec![1, 1, 0]);
+		assert_eq!(a.clone() >> 1, bitvec![0, 0, 1, 1, 0]);
+		assert_eq!(a.clone() << 4, bitvec![]);
+	}
+
+	#[test]
+	fn bit_arith() {
+		let a = bitvec![0, 1, 0, 1];
+		let b = bitvec![0, 0, 1, 1];
+
+		assert_eq!(a.clone() & b.clone(), bitvec![0, 0, 0, 1]);
+		assert_eq!(a.clone() | b.clone(), bitvec![0, 1, 1, 1]);
+		assert_eq!(a.clone() ^ b.clone(), bitvec![0, 1, 1, 0]);
+		assert_eq!(!a, bitvec![1, 0, 1, 0]);
+	}
+
+	#[test]
+	fn index() {
+		let mut bits = bitvec![0, 0, 1, 0, 0];
+
+		assert!(bits[2]);
+
+		assert_eq!(bits[1 .. 4], bitvec![0, 1, 0]);
+		assert_eq!(&mut bits[1 .. 4], &mut bitvec![0, 1, 0]);
+
+		assert_eq!(bits[2 ..], bitvec![1, 0, 0]);
+		assert_eq!(&mut bits[2 ..], &mut bitvec![1, 0, 0]);
+
+		assert_eq!(bits[..], bitvec![0, 0, 1, 0, 0]);
+		assert_eq!(&mut bits[..], &mut bitvec![0, 0, 1, 0, 0]);
+
+		assert_eq!(bits[1 ..= 3], bitvec![0, 1, 0]);
+		assert_eq!(&mut bits[1 ..= 3], &mut bitvec![0, 1, 0]);
+
+		assert_eq!(bits[.. 3], bitvec![0, 0, 1]);
+		assert_eq!(&mut bits[.. 3], &mut bitvec![0, 0, 1]);
+
+		assert_eq!(bits[..= 2], bitvec![0, 0, 1]);
+		assert_eq!(&mut bits[..= 2], &mut bitvec![0, 0, 1]);
 	}
 }

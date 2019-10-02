@@ -79,7 +79,9 @@ where C: Cursor, T: BitStore {
 	fn clone_from(&mut self, other: &Self) {
 		//  Ensure that `self` has capacity to receive `other`.
 		self.clear();
-		self.reserve(other.len());
+		let olen = other.len();
+		self.reserve(olen);
+		unsafe { self.set_len(olen); }
 
 		//  Copy over the backing memory buffer.
 		self.as_mut_slice().copy_from_slice(other.as_slice());
@@ -263,8 +265,7 @@ where C: Cursor, T: BitStore {
 impl<C, T> Write for BitVec<C, T>
 where C: Cursor, T: BitStore {
 	fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-		use std::cmp;
-		let amt = cmp::min(buf.len(), BitPtr::<T>::MAX_BITS - self.len());
+		let amt = core::cmp::min(buf.len(), (BitPtr::<T>::MAX_BITS - self.len()) >> 3);
 		self.extend(<&BitSlice<C, u8>>::from(buf));
 		Ok(amt)
 	}
@@ -279,3 +280,84 @@ where C: Cursor, T: BitStore {}
 /// `&BitVec` is safe to move across thread boundaries.
 unsafe impl<C, T> Sync for BitVec<C, T>
 where C: Cursor, T: BitStore {}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::prelude::*;
+
+	#[test]
+	fn borrow() {
+		let mut a = bitvec![1; 10];
+		Borrow::<BitSlice<BigEndian, u8>>::borrow(&a);
+		BorrowMut::<BitSlice<BigEndian, u8>>::borrow_mut(&mut a);
+	}
+
+	#[test]
+	fn clone() {
+		let a = bitvec![1; 10];
+		let mut b = bitvec![];
+		b.clone_from(&a);
+
+		assert_eq!(a, b);
+	}
+
+	#[test]
+	fn cmp() {
+		let a = bitvec![0, 0, 1];
+		let b = bitvec![0, 0, 1, 0];
+		let c = b.clone();
+		let d = bitvec![0, 1, 0, 0];
+
+		assert!(a < b);
+		assert!(b <= c);
+		assert!(b == c);
+		assert!(c < d);
+		assert!(c != d.as_bits());
+
+		assert_eq!(a.cmp(&b), Ordering::Less);
+		assert!(!a.eq(b.as_bits()));
+		assert_eq!(b.partial_cmp(c.as_bits()), Some(Ordering::Equal));
+		assert_eq!(c.partial_cmp(&d.as_bits()), Some(Ordering::Less));
+	}
+
+	#[test]
+	fn conv() {
+		let mut bv = bitvec![1; 10];
+
+		AsMut::<BitSlice<_, _>>::as_mut(&mut bv).set(0, false);
+		AsMut::<[_]>::as_mut(&mut bv)[1] = 255;
+		assert_eq!(AsRef::<BitSlice<_, _>>::as_ref(&bv).get(0), Some(false));
+		assert_eq!(AsRef::<[_]>::as_ref(&bv)[1], 255);
+
+		assert_eq!(BitVec::from(0xA5u8.bits::<BigEndian>()).len(), 8);
+		assert_eq!(BitVec::<BigEndian, u16>::from(&[true, false][..]).len(), 2);
+		assert_eq!(BitVec::<BigEndian, _>::from(&[1u8, 2][..]).len(), 16);
+		assert_eq!(BitVec::<BigEndian, _>::from(vec![1u8, 2].into_boxed_slice()).len(), 16);
+		assert_eq!(Into::<Box<[_]>>::into(bitvec![1; 16]).len(), 2);
+		assert_eq!(BitVec::<LittleEndian, _>::from(vec![1u8, 2]).len(), 16);
+		assert_eq!(Into::<Vec<_>>::into(bitvec![1; 16]).len(), 2);
+		assert!(BitVec::<LittleEndian, u32>::default().is_empty());
+	}
+
+	#[test]
+	fn fmt() {
+		let bv = bitvec![1; 12];
+		assert_eq!(format!("{}", bv), "[11111111, 1111]");
+		assert_eq!(format!("{:?}", bv), "BitVec<bitvec::cursor::BigEndian, u8> [11111111, 1111]");
+	}
+
+	#[test]
+	fn hash() {
+		let mut hasher = std::collections::hash_map::DefaultHasher::new();
+		let _ = bitvec![1; 10].hash(&mut hasher);
+	}
+
+	#[cfg(feature = "std")]
+	#[test]
+	fn write() {
+		let mut bv = BitVec::<LittleEndian, u32>::new();
+		let res = bv.write(b"Saluton, mondo!\r\n");
+		assert_eq!(res.unwrap(), 17);
+	}
+}

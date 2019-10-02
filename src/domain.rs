@@ -34,20 +34,6 @@ pub enum BitDomainKind {
 	Spanning,
 }
 
-#[cfg(test)]
-impl BitDomainKind {
-	/// Tests if the variant is `Minor`.
-	pub(crate) fn is_minor(self)        -> bool { self == BitDomainKind::Minor       }
-	/// Tests if the variant is `Major`.
-	pub(crate) fn is_major(self)        -> bool { self == BitDomainKind::Major       }
-	/// Tests if the variant is `PartialHead`.
-	pub(crate) fn is_partial_head(self) -> bool { self == BitDomainKind::PartialHead }
-	/// Tests if the variant is `PartialTail`.
-	pub(crate) fn is_partial_tail(self) -> bool { self == BitDomainKind::PartialTail }
-	/// Tests if the variant is `Spanning`.
-	pub(crate) fn is_spanning(self)     -> bool { self == BitDomainKind::Spanning    }
-}
-
 impl<T> From<&BitPtr<T>> for BitDomainKind
 where T: BitStore {
 	fn from(bitptr: &BitPtr<T>) -> Self {
@@ -316,7 +302,7 @@ where T: 'a + BitStore {
 	}
 }
 
-#[cfg(all(test, feature = "testing"))]
+#[cfg(test)]
 mod tests {
 	use super::*;
 	use crate::indices::IntoBitIdx;
@@ -326,7 +312,7 @@ mod tests {
 		let data: u8 = 0u8;
 		let bp = BitPtr::new(&data, 1u8.idx(), 6);
 
-		assert!(bp.domain_kind().is_minor());
+		assert_eq!(bp.domain_kind(), BitDomainKind::Minor);
 	}
 
 	#[test]
@@ -334,7 +320,7 @@ mod tests {
 		let data: &[u16] = &[0u16, !0u16];
 		let bp = BitPtr::new(&data[0], 1u8.idx(), 28);
 
-		assert!(bp.domain_kind().is_major());
+		assert_eq!(bp.domain_kind(), BitDomainKind::Major);
 	}
 
 	#[test]
@@ -342,12 +328,12 @@ mod tests {
 		let data: u32 = 0u32;
 		let bp = BitPtr::new(&data, 4u8.idx(), 28);
 
-		assert!(bp.domain_kind().is_partial_head());
+		assert_eq!(bp.domain_kind(), BitDomainKind::PartialHead);
 
 		let data: &[u32] = &[0u32, !0u32];
 		let bp = BitPtr::new(&data[0], 4u8.idx(), 60);
 
-		assert!(bp.domain_kind().is_partial_head());
+		assert_eq!(bp.domain_kind(), BitDomainKind::PartialHead);
 	}
 
 	#[test]
@@ -355,12 +341,12 @@ mod tests {
 		let data: u64 = 0u64;
 		let bp = BitPtr::new(&data, 0u8.idx(), 60);
 
-		assert!(bp.domain_kind().is_partial_tail());
+		assert_eq!(bp.domain_kind(), BitDomainKind::PartialTail);
 
 		let data: &[u64] = &[0u64, !0u64];
 		let bp = BitPtr::new(&data[0], 0u8.idx(), 124);
 
-		assert!(bp.domain_kind().is_partial_tail());
+		assert_eq!(bp.domain_kind(), BitDomainKind::PartialTail);
 	}
 
 	#[test]
@@ -368,11 +354,11 @@ mod tests {
 		let data: u8 = 0u8;
 		let bp = BitPtr::new(&data, 0u8.idx(), 8);
 
-		assert!(bp.domain_kind().is_spanning());
+		assert_eq!(bp.domain_kind(), BitDomainKind::Spanning);
 
 		let data: &[u16] = &[0u16, !0u16];
 		let bp = BitPtr::new(&data[0], 0u8.idx(), 32);
 
-		assert!(bp.domain_kind().is_spanning());
+		assert_eq!(bp.domain_kind(), BitDomainKind::Spanning);
 	}
 }

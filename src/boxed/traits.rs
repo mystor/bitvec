@@ -263,9 +263,14 @@ mod tests {
 		assert!(c != a.as_bits());
 
 		assert_eq!(Ord::cmp(&a, &b), Ordering::Less);
-		assert_eq!(PartialOrd::partial_cmp(&a, &&*b), Some(Ordering::Less));
-		assert_eq!(PartialOrd::partial_cmp(&a, &b), Some(Ordering::Less));
-		assert!(!PartialEq::eq(&a, &&*b));
+		assert!(b.eq(c.as_bits()));
+		assert_eq!(a.partial_cmp(b.as_bits()), Some(Ordering::Less));
+		assert_eq!(a.partial_cmp(&b.as_bits()), Some(Ordering::Less));
+		assert_eq!(
+			<BitBox<_, _> as PartialOrd::<BitBox<_, _>>>::partial_cmp(&b, &c),
+			Some(Ordering::Equal),
+		);
+		assert!(!a.eq(b.as_bits()));
 	}
 
 	#[test]

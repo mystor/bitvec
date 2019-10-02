@@ -40,6 +40,9 @@ clippy: check
 	cargo clippy --no-default-features --features alloc
 	cargo clippy --all-features
 
+cover: check
+	cargo tarpaulin --all-features -v
+
 # Runs the development routines.
 dev: clippy doc test
 

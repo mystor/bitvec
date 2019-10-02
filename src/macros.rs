@@ -113,6 +113,7 @@ macro_rules! bitvec {
 	( __bv_impl__ $cursor:path , $bits:ty ; $val:expr ; $rep:expr ) => {{
 		let mut bv = $crate::vec::BitVec::<$cursor, $bits>::with_capacity($rep);
 		bv.set_elements(0);
+		#[allow(unused_unsafe)]
 		unsafe { bv.set_len($rep); }
 		let one = $val != 0;
 		if one {
