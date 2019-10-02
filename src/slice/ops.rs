@@ -4,7 +4,6 @@ use super::BitSlice;
 
 use crate::{
 	access::BitAccess,
-	bits::BitsMut,
 	cursor::Cursor,
 	domain::BitDomainMut,
 	indices::IntoBitIdx,

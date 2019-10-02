@@ -17,9 +17,6 @@ use core::{
 	ptr::NonNull,
 };
 
-#[cfg(feature = "alloc")]
-use alloc::vec::Vec;
-
 impl<C, T> Extend<bool> for BitVec<C, T>
 where C: Cursor, T: BitStore {
 	fn extend<I: IntoIterator<Item=bool>>(&mut self, src: I) {
@@ -373,10 +370,11 @@ where C: Cursor, T: 'a + BitStore, I: Iterator<Item=bool> {
 			}
 		}
 
-		let mut remnant = self.splice.by_ref().collect::<Vec<_>>().into_iter();
-		if remnant.len() > 0 {
-			self.drain.move_tail(remnant.len());
-			self.drain.fill(&mut remnant);
+		let remnant = self.splice.by_ref().collect::<BitVec<C, T>>();
+		let rlen = remnant.len();
+		if rlen > 0 {
+			self.drain.move_tail(rlen);
+			self.drain.fill(&mut remnant.into_iter());
 		}
 		//  Drain::drop does the rest
 	} }
@@ -402,6 +400,26 @@ mod tests {
 		let _ = (&bitvec![0; 10]).into_iter();
 	}
 
+	#[test]
+	fn drain() {
+		let mut bv = bitvec![0, 0, 1, 1, 1, 0, 0];
+		let mut drain = bv.drain(2 .. 5);
+		assert!(drain.next_back().unwrap());
+		assert!(drain.next().unwrap());
+	}
+
+	#[test]
+	fn splice() {
+		//  This hits the end of `Splice::drop`
+		// let mut bv = bitvec![0; 4];
+		// bv.splice(1 .. 3, lower_only(6));
+
+		//  Hit the middle segments of `Splice::drop` with carefully crafted
+		//  mischievous iterators.
+		let mut bv = bitvec![0; 10];
+		bv.splice(1 .. 4, lower_only(7));
+	}
+
 	fn lower_only(n: usize) -> LowerOnly<impl Iterator<Item = bool>, bool> {
 		LowerOnly {
 			inner: core::iter::repeat(true).take(n)
@@ -416,12 +434,13 @@ mod tests {
 	impl<I, T> Iterator for LowerOnly<I, T>
 	where I: Iterator<Item = T> {
 		type Item = T;
+
 		fn next(&mut self) -> Option<Self::Item> {
 			self.inner.next()
 		}
 
 		fn size_hint(&self) -> (usize, Option<usize>) {
-			(self.inner.size_hint().0, None)
+			(self.inner.size_hint().0 / 2, None)
 		}
 	}
 }

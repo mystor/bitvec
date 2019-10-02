@@ -1672,6 +1672,14 @@ mod tests {
 	}
 
 	#[test]
+	fn arith() {
+		assert_eq!(
+			bitvec![0, 1, 0, 1].add_reverse(bitvec![0, 1]),
+			bitvec![0, 0, 1, 1],
+		);
+	}
+
+	#[test]
 	fn misc() {
 		let mut bv = bitvec![0, 1, 0, 1];
 
@@ -1708,7 +1716,11 @@ mod tests {
 		let bv2 = bv.split_off(3);
 		assert!(bv.all());
 		assert!(bv2.not_any());
+		let bv3 = bv.split_off(0);
+		assert!(bv.is_empty());
+		bv = bv3;
 
+		bv.resize(1, false);
 		bv.resize(10, true);
 		assert!(bv.all());
 		assert_eq!(bv.len(), 10);
@@ -1724,6 +1736,11 @@ mod tests {
 		assert!(a[0]);
 		let mut b = a.change_cursor::<LittleEndian>();
 		assert!(!b[0]);
+
+		assert_eq!(
+			bitvec![1, 0, 1, 0].add_reverse(bitvec![0, 1, 1]),
+			bitvec![1, 1, 0, 1],
+		);
 
 		b.force_align();
 
