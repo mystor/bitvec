@@ -46,7 +46,7 @@ fn issue_10() {
 	assert!(!slice[7]);
 
 	let mut bv2 = slice.to_owned();
-	assert_eq!(bv2, slice);
+	assert_eq!(bv2, *slice);
 
 	//  2019-08-28: Cloning a partial-head slice uses the slice clone for speed,
 	//  but preserves the head information so that the live bitslice remains

@@ -203,8 +203,6 @@ where C: Cursor, T: BitStore {
 
 	fn index(&self, index: RangeInclusive<usize>) -> &Self::Output {
 		let start = *index.start();
-		//  This check can never fail, due to implementation details of
-		//  `BitPtr<T>`.
 		if let Some(end) = index.end().checked_add(1) {
 			&self[start .. end]
 		}
@@ -218,8 +216,6 @@ impl<C, T> IndexMut<RangeInclusive<usize>> for BitSlice<C, T>
 where C: Cursor, T: BitStore {
 	fn index_mut(&mut self, index: RangeInclusive<usize>) -> &mut Self::Output {
 		let start = *index.start();
-		//  This check can never fail, due to implementation details of
-		//  `BitPtr<T>`.
 		if let Some(end) = index.end().checked_add(1) {
 			&mut self[start .. end]
 		}
@@ -440,45 +436,35 @@ where C: Cursor, T: 'a + BitStore {
 	/// assert_eq!(&src, &[0x3F, 0xFC]);
 	/// ```
 	fn not(self) -> Self::Output {
+		fn invert_partial<C, T>(h: u8, e: &T::Access, t: u8)
+		where C: Cursor, T: BitStore {
+			(h .. t).for_each(|n| e.invert_bit::<C>(n.idx()));
+		}
+
+		fn invert_whole<T>(elts: &mut [T])
+		where T: BitStore {
+			elts.into_iter().for_each(|e| *e = !*e);
+		}
+
 		match self.bitptr().domain_mut() {
 			BitDomainMut::Empty => {},
 			BitDomainMut::Minor(head, elt, tail) => {
-				for n in *head .. *tail {
-					elt.invert_bit::<C>(n.idx());
-				}
+				invert_partial::<C, T>(*head, elt, *tail);
 			},
 			BitDomainMut::Major(h, head, body, tail, t) => {
-				for n in *h .. T::BITS {
-					head.invert_bit::<C>(n.idx());
-				}
-				for elt in body {
-					*elt = !*elt;
-				}
-				for n in 0 .. *t {
-					tail.invert_bit::<C>(n.idx());
-				}
+				invert_partial::<C, T>(*h, head, T::BITS);
+				invert_whole::<T>(body);
+				invert_partial::<C, T>(0, tail, *t);
 			},
 			BitDomainMut::PartialHead(h, head, body) => {
-				for n in *h .. T::BITS {
-					head.invert_bit::<C>(n.idx());
-				}
-				for elt in body {
-					*elt = !*elt;
-				}
+				invert_partial::<C, T>(*h, head, T::BITS);
+				invert_whole::<T>(body);
 			},
 			BitDomainMut::PartialTail(body, tail, t) => {
-				for elt in body {
-					*elt = !*elt;
-				}
-				for n in 0 .. *t {
-					tail.invert_bit::<C>(n.idx());
-				}
+				invert_whole::<T>(body);
+				invert_partial::<C, T>(0, tail, *t);
 			},
-			BitDomainMut::Spanning(body) => {
-				for elt in body {
-					*elt = !*elt;
-				}
-			},
+			BitDomainMut::Spanning(body) => invert_whole::<T>(body),
 		}
 		self
 	}
@@ -555,12 +541,6 @@ where C: Cursor, T: BitStore {
 			//  Compute the number of elements that will remain.
 			let elts = self.as_slice().len();
 			let rem = elts.saturating_sub(offset);
-			//  Clear the bits after the tail cursor before the move.
-			let tail = self.bitptr().tail();
-			let last_elt = self.as_mut_slice()[elts - 1].bits_mut::<C>();
-			for n in *tail .. T::BITS {
-				unsafe { last_elt.set_unchecked(n as usize, false); }
-			}
 			//  Memory model: suppose we have this slice of sixteen elements,
 			//  that is shifted five elements to the left. We have three
 			//  pointers and two lengths to manage.
@@ -660,12 +640,6 @@ where C: Cursor, T: BitStore {
 			let offset = shamt >> T::INDX;
 			// Compute the number of elements that will remain.
 			let rem = self.as_slice().len().saturating_sub(offset);
-			//  Clear the bits ahead of the head cursor before the move.
-			let head = self.bitptr().head();
-			let first_elt = self.as_mut_slice()[0].bits_mut::<C>();
-			for n in 0 .. *head {
-				unsafe { first_elt.set_unchecked(n as usize, false); }
-			}
 			//  Memory model: suppose we have this slice of sixteen elements,
 			//  that is shifted five elements to the right. We have two pointers
 			//  and two lengths to manage.
@@ -689,5 +663,122 @@ where C: Cursor, T: BitStore {
 			unsafe { self.copy(from, to); }
 		}
 		self[.. shamt].set_all(false);
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use crate::prelude::*;
+
+	#[test]
+	fn arith() {
+		//  neg
+
+		let mut src = 0b1010_0110u8;
+		let bits = src.bits_mut::<BigEndian>();
+		let num = &mut bits[.. 4];
+		let _ = -num;
+		assert_eq!(&bits[.. 4], &bits[4 ..]);
+
+		let mut src = 128u8;
+		let bits = src.bits_mut::<BigEndian>();
+		let num = &mut bits[..];
+		let _ = -num;
+		assert!(bits.not_any());
+		let num = &mut bits[..];
+		let _ = -num;
+		assert!(bits.not_any());
+
+		//  not
+
+		let mut src = [0u8; 2];
+
+		let minor = &mut src.bits_mut::<BigEndian>()[1 .. 7];
+		let _ = !minor;
+		assert_eq!(src[0], 0x7E);
+		src = [0; 2];
+
+		let major = &mut src.bits_mut::<BigEndian>()[2 .. 14];
+		let _ = !major;
+		assert_eq!(&src, &[0x3F, 0xFC]);
+		src = [0; 2];
+
+		let ph = &mut src.bits_mut::<BigEndian>()[2 ..];
+		let _ = !ph;
+		assert_eq!(src, [0x3F, 0xFF]);
+		src = [0; 2];
+
+		let pt = &mut src.bits_mut::<BigEndian>()[.. 14];
+		let _ = !pt;
+		assert_eq!(src, [0xFF, 0xFC]);
+		src = [0; 2];
+
+		let span = src.bits_mut::<BigEndian>();
+		let _ = !span;
+		assert_eq!(src, [0xFF; 2]);
+
+		//  shl
+
+		let mut src = [!0u8; 2];
+
+		*src.bits_mut::<BigEndian>() >>= 0;
+		assert_eq!(src, [!0; 2]);
+
+		*src.bits_mut::<BigEndian>() >>= 4;
+		assert_eq!(src, [0x0F, !0]);
+		src = [!0; 2];
+
+		*src.bits_mut::<BigEndian>() >>= 8;
+		assert_eq!(src, [0, !0]);
+		src = [!0; 2];
+
+		*src.bits_mut::<BigEndian>() >>= 16;
+		assert_eq!(src, [0; 2]);
+
+		//  shr
+
+		let mut src = [!0u8; 2];
+
+		*src.bits_mut::<BigEndian>() <<= 0;
+		assert_eq!(src, [!0; 2]);
+
+		*src.bits_mut::<BigEndian>() <<= 4;
+		assert_eq!(src, [!0, 0xF0]);
+		src = [!0; 2];
+
+		*src.bits_mut::<BigEndian>() <<= 8;
+		assert_eq!(src, [!0, 0]);
+		src = [!0; 2];
+
+		*src.bits_mut::<BigEndian>() <<= 16;
+		assert_eq!(src, [0; 2]);
+	}
+
+	#[test]
+	fn index() {
+		let mut a = 0b000_00100u8;
+		let mut b = a;
+		let a = &mut a.bits_mut::<BigEndian>()[3 ..];
+		let b = &mut b.bits_mut::<BigEndian>()[3 ..];
+
+		assert!(a[2]);
+
+		assert_eq!(a[1 .. 4], b[1 .. 4]);
+		assert_eq!(&mut a[1 .. 4], &mut b[1 .. 4]);
+
+		assert_eq!(a[2 ..], b[2 ..]);
+		assert_eq!(&mut a[2 ..], &mut b[2 ..]);
+
+		assert_eq!(a[..], b[..]);
+		assert_eq!(&mut a[..], &mut b[..]);
+
+		assert_eq!(a[1 ..= 3], b[1 .. 4]);
+		assert_eq!(&mut a[1 ..= 3], &mut b[1 .. 4]);
+
+		assert_eq!(a[.. 3], b[.. 3]);
+		assert_eq!(&mut a[.. 3], &mut b[.. 3]);
+
+		assert_eq!(a[..= 2], b[.. 3]);
+		assert_eq!(&mut a[..= 2], &mut b[.. 3]);
 	}
 }

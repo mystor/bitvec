@@ -81,13 +81,6 @@ where A: Cursor, B: BitStore, C: Cursor, D: BitStore {
 	}
 }
 
-impl<A, B, C, D> PartialEq<&BitSlice<C, D>> for BitBox<A, B>
-where A: Cursor, B: BitStore, C: Cursor, D: BitStore {
-	fn eq(&self, rhs: &&BitSlice<C, D>) -> bool {
-		self.as_bits().eq(&**rhs)
-	}
-}
-
 impl<A, B, C, D> PartialEq<BitBox<C, D>> for BitSlice<A, B>
 where A: Cursor, B: BitStore, C: Cursor, D: BitStore {
 	fn eq(&self, rhs: &BitBox<C, D>) -> bool {
@@ -106,13 +99,6 @@ impl<A, B, C, D> PartialOrd<BitSlice<C, D>> for BitBox<A, B>
 where A: Cursor, B: BitStore, C: Cursor, D: BitStore {
 	fn partial_cmp(&self, rhs: &BitSlice<C, D>) -> Option<Ordering> {
 		self.as_bits().partial_cmp(rhs)
-	}
-}
-
-impl<A, B, C, D> PartialOrd<&BitSlice<C, D>> for BitBox<A, B>
-where A: Cursor, B: BitStore, C: Cursor, D: BitStore {
-	fn partial_cmp(&self, rhs: &&BitSlice<C, D>) -> Option<Ordering> {
-		self.as_bits().partial_cmp(&**rhs)
 	}
 }
 
@@ -260,12 +246,12 @@ mod tests {
 		assert!(b == c);
 		assert!(c >= b);
 		assert!(b > a);
-		assert!(c != a.as_bits());
+		assert!(c != *a);
 
 		assert_eq!(Ord::cmp(&a, &b), Ordering::Less);
 		assert!(b.eq(c.as_bits()));
 		assert_eq!(a.partial_cmp(b.as_bits()), Some(Ordering::Less));
-		assert_eq!(a.partial_cmp(&b.as_bits()), Some(Ordering::Less));
+		assert_eq!(a.as_bits().partial_cmp(&b), Some(Ordering::Less));
 		assert_eq!(
 			<BitBox<_, _> as PartialOrd::<BitBox<_, _>>>::partial_cmp(&b, &c),
 			Some(Ordering::Equal),

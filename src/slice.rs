@@ -920,11 +920,12 @@ where C: Cursor, T: BitStore {
 			if len < 2 {
 				return;
 			}
-			//  swap() has two assertions on each call, that reverse() knows it
-			//  can bypass
-			let (h, t) = (cur[0], cur[len - 1]);
-			cur.set(0, t);
-			cur.set(len - 1, h);
+			let end = len - 1;
+			unsafe {
+				let (h, t) = (cur.get_unchecked(0), cur.get_unchecked(end));
+				cur.set_unchecked(0, t);
+				cur.set_unchecked(end, h);
+			}
 			cur = &mut cur[1 .. len - 1];
 		}
 	}
@@ -1437,7 +1438,7 @@ where C: Cursor, T: BitStore {
 	pub fn starts_with<D, U>(&self, prefix: &BitSlice<D, U>) -> bool
 	where D: Cursor, U: BitStore {
 		let plen = prefix.len();
-		self.len() >= plen && prefix == self[.. plen]
+		self.len() >= plen && *prefix == self[.. plen]
 	}
 
 	/// Tests if the slice ends with the given suffix.
@@ -1466,7 +1467,7 @@ where C: Cursor, T: BitStore {
 	where D: Cursor, U: BitStore {
 		let slen = suffix.len();
 		let len = self.len();
-		len >= slen && suffix == self[len - slen ..]
+		len >= slen && *suffix == self[len - slen ..]
 	}
 
 	/// Rotates the slice, in place, to the left.
@@ -1506,8 +1507,7 @@ where C: Cursor, T: BitStore {
 		for _ in 0 .. by {
 			let tmp = self[0];
 			for n in 1 .. len {
-				let bit = self[n];
-				self.set(n - 1, bit);
+				unsafe { self.copy(n, n - 1); }
 			}
 			self.set(len - 1, tmp);
 		}
@@ -1552,8 +1552,7 @@ where C: Cursor, T: BitStore {
 			let tmp = self[len - 1];
 			//  of `len` steps
 			for n in (0 .. len - 1).rev() {
-				let bit = self[n];
-				self.set(n + 1, bit);
+				unsafe { self.copy(n, n + 1); }
 			}
 			self.set(0, tmp);
 		}
@@ -1829,49 +1828,39 @@ where C: Cursor, T: BitStore {
 	/// assert_eq!(bits.count_ones(), 10);
 	/// ```
 	pub fn count_ones(&self) -> usize {
+		fn count_partial<C, T>(head: u8, elt: &T::Access, tail: u8) -> usize
+		where C: Cursor, T: BitStore {
+			(head .. tail)
+				.map(|n| elt.get::<C>(n.idx()))
+				.filter(|b| *b)
+				.count()
+		}
+
+		fn count_whole<T>(src: &[T]) -> usize
+		where T: BitStore {
+			src.iter().map(T::count_ones).sum()
+		}
+
 		match self.bitptr().domain() {
 			BitDomain::Empty => 0,
 			BitDomain::Minor(head, elt, tail) => {
-				(*head .. *tail)
-					.map(|n| elt.get::<C>(n.idx()))
-					.filter(|b| *b)
-					.count()
+				count_partial::<C, T>(*head, elt, *tail)
 			},
 			BitDomain::Major(h, head, body, tail, t) => {
-				(*h .. T::BITS)
-					.map(|n| head.get::<C>(n.idx()))
-					.filter(|b| *b)
-					.count() +
-				body.iter()
-					.map(T::count_ones)
-					.sum::<usize>() +
-				(0 .. *t)
-					.map(|n| tail.get::<C>(n.idx()))
-					.filter(|b| *b)
-					.count()
+				count_partial::<C, T>(*h, head, T::BITS) +
+				count_whole(body) +
+				count_partial::<C, T>(0, tail, *t)
 			},
 			BitDomain::PartialHead(h, head, body) => {
-				(*h .. T::BITS)
-					.map(|n| head.get::<C>(n.idx()))
-					.filter(|b| *b)
-					.count() +
-				body.iter()
-					.map(T::count_ones)
-					.sum::<usize>()
+				count_partial::<C, T>(*h, head, T::BITS) +
+				count_whole::<T>(body)
 			},
 			BitDomain::PartialTail(body, tail, t) => {
-				body.iter()
-					.map(T::count_ones)
-					.sum::<usize>() +
-				(0 .. *t)
-					.map(|n| tail.get::<C>(n.idx()))
-					.filter(|b| *b)
-					.count()
+				count_whole::<T>(body) +
+				count_partial::<C, T>(0, tail, *t)
 			},
 			BitDomain::Spanning(body) => {
-				body.iter()
-					.map(T::count_ones)
-					.sum::<usize>()
+				count_whole::<T>(body)
 			}
 		}
 	}
@@ -1895,51 +1884,7 @@ where C: Cursor, T: BitStore {
 	/// assert_eq!(bits.count_zeros(), 6);
 	/// ```
 	pub fn count_zeros(&self) -> usize {
-		match self.bitptr().domain() {
-			BitDomain::Empty => 0,
-			BitDomain::Minor(head, elt, tail) => {
-				(*head .. *tail)
-					.map(|n| !elt.get::<C>(n.idx()))
-					.filter(|b| !*b)
-					.count()
-			},
-			BitDomain::Major(h, head, body, tail, t) => {
-				(*h .. T::BITS)
-					.map(|n| head.get::<C>(n.idx()))
-					.filter(|b| !*b)
-					.count() +
-				body.iter()
-					.map(T::count_zeros)
-					.sum::<usize>() +
-				(0 .. *t)
-					.map(|n| tail.get::<C>(n.idx()))
-					.filter(|b| !*b)
-					.count()
-			},
-			BitDomain::PartialHead(h, head, body) => {
-				(*h .. T::BITS)
-					.map(|n| head.get::<C>(n.idx()))
-					.filter(|b| !*b)
-					.count() +
-				body.iter()
-					.map(T::count_zeros)
-					.sum::<usize>()
-			},
-			BitDomain::PartialTail(body, tail, t) => {
-				body.iter()
-					.map(T::count_zeros)
-					.sum::<usize>() +
-				(0 .. *t)
-					.map(|n| tail.get::<C>(n.idx()))
-					.filter(|b| !*b)
-					.count()
-			},
-			BitDomain::Spanning(body) => {
-				body.iter()
-					.map(T::count_zeros)
-					.sum::<usize>()
-			},
-		}
+		self.len() - self.count_ones()
 	}
 
 	/// Set all bits in the slice to a value.
@@ -2456,6 +2401,11 @@ mod tests {
 		assert!(BitSlice::<BigEndian, u8>::empty_mut().split_first_mut().is_none());
 		assert!(BitSlice::<BigEndian, u8>::empty().split_last().is_none());
 		assert!(BitSlice::<BigEndian, u8>::empty_mut().split_last_mut().is_none());
+
+		let bits = store.bits::<BigEndian>();
+		let empty = BitSlice::<BigEndian, u8>::empty();
+		assert_eq!(bits.split_at(0), (empty, &bits[..]));
+		assert_eq!(bits.split_at(8), (&bits[..], empty));
 	}
 
 	#[test]
@@ -2494,24 +2444,128 @@ mod tests {
 
 	#[test]
 	fn query() {
-		let src = [0b0000_1111u8, !0, 0b1111_0000];
+		let src = [0b0000_1111u8, !0, 0b1111_0000, 0, 0b0000_1111];
+		//           0       7    8-15  16     23 24-31 32     39
 		let bits = src.bits::<BigEndian>();
 
 		assert!(BitSlice::<BigEndian, u8>::empty().all());
 		assert!(bits[9 .. 15].all());
-		assert!(!bits[1 .. 4].all());
+		assert!(bits[1 .. 4].not_all());
 		assert!(bits[4 .. 20].all());
-		assert!(!bits[2 .. 20].all());
-		assert!(!bits[4 .. 22].all());
-		assert!(!bits[.. 20].all());
-		assert!(!bits[4 ..].all());
-		assert!(!bits.all());
+		assert!(bits[2 .. 20].not_all());
+		assert!(bits[4 .. 22].not_all());
+		assert!(bits[4 .. 16].all());
+		assert!(bits[0 .. 22].not_all());
+		assert!(bits[2 .. 24].not_all());
+		assert!(bits.not_all());
 
 		assert!(!BitSlice::<BigEndian, u8>::empty().any());
 		assert!(bits[9 .. 15].any());
+		assert!(bits[1 .. 4].not_any());
 		assert!(bits[4 .. 20].any());
-		assert!(!bits[.. 4].any());
-		assert!(!bits[20 ..].any());
+		assert!(bits[20 .. 38].any());
+		assert!(bits[4 .. 16].any());
 		assert!(bits.any());
+
+		assert!(bits[.. 8].some());
+
+		assert_eq!(bits.count_ones(), 20);
+		assert_eq!(bits.count_zeros(), 20);
+
+		assert_eq!(bits[1 .. 7].count_ones(), 3);
+		assert_eq!(bits[1 .. 7].count_zeros(), 3);
+
+		assert_eq!(bits[2 .. 22].count_ones(), 16);
+		assert_eq!(bits[2 .. 22].count_zeros(), 4);
+		assert_eq!(bits[18 .. 38].count_ones(), 4);
+		assert_eq!(bits[18 .. 38].count_zeros(), 16);
+
+		assert_eq!(bits[4 .. 24].count_ones(), 16);
+		assert_eq!(bits[4 .. 24].count_zeros(), 4);
+		assert_eq!(bits[20 .. 40].count_ones(), 4);
+		assert_eq!(bits[20 .. 40].count_zeros(), 16);
+
+		assert_eq!(bits[0 .. 20].count_ones(), 16);
+		assert_eq!(bits[0 .. 20].count_zeros(), 4);
+		assert_eq!(bits[16 .. 36].count_ones(), 4);
+		assert_eq!(bits[16 .. 36].count_zeros(), 16);
+	}
+
+	#[test]
+	fn batch_set() {
+		let mut src = [0u8; 5];
+
+		src.bits_mut::<BigEndian>()[1 .. 7].set_all(true);
+		assert_eq!(src, [0b0111_1110, 0, 0, 0, 0]);
+
+		src.bits_mut::<BigEndian>()[20 .. 36].set_all(true);
+		assert_eq!(src, [0b0111_1110, 0, 0x0F, 0xFF, 0xF0]);
+
+		src.bits_mut::<BigEndian>()[4 .. 24].set_all(false);
+		assert_eq!(src, [0x70, 0, 0, 0xFF, 0xF0]);
+
+		src.bits_mut::<BigEndian>()[24 .. 36].set_all(false);
+		assert_eq!(src, [0x70, 0, 0, 0, 0]);
+
+		src.bits_mut::<BigEndian>().set_all(true);
+		assert_eq!(src, [0xFF; 5]);
+	}
+
+	#[test]
+	fn for_each() {
+		let mut src = [0u8, !0, 0xA5, 0x5A];
+		src.bits_mut::<LittleEndian>().for_each(|idx, bit| {
+			bit ^ (idx % 2 == 0)
+		});
+		assert_eq!(src, [0x55, 0xAA, 0xF0, 0x0F]);
+	}
+
+	#[test]
+	fn as_slice() {
+		let mut src = [0, !0, 0];
+
+		assert!(BitSlice::<BigEndian, u8>::empty().as_slice().is_empty());
+		assert!(src.bits::<BigEndian>()[ 9 .. 15].as_slice().is_empty());
+		assert_eq!(src.bits::<BigEndian>()[4 .. 20].as_slice(), [!0u8]);
+		assert_eq!(src.bits::<BigEndian>()[4 ..].as_slice(), [!0u8, 0]);
+		assert_eq!(src.bits::<BigEndian>()[.. 20].as_slice(), [0u8, !0]);
+		assert_eq!(src.bits::<BigEndian>().as_slice(), src);
+
+		unsafe {
+		assert!(BitSlice::<BigEndian, u8>::empty().as_total_slice().is_empty());
+		assert_eq!(src.bits::<BigEndian>()[ 9 .. 15].as_total_slice(), [!0]);
+		assert_eq!(src.bits::<BigEndian>()[4 .. 20].as_total_slice(), src);
+		assert_eq!(src.bits::<BigEndian>()[4 ..].as_total_slice(), src);
+		assert_eq!(src.bits::<BigEndian>()[.. 20].as_total_slice(), src);
+		assert_eq!(src.bits::<BigEndian>().as_total_slice(), src);
+		}
+
+		assert!(BitSlice::<BigEndian, u8>::empty_mut().as_mut_slice().is_empty());
+		assert!(src.bits_mut::<BigEndian>()[ 9 .. 15].as_mut_slice().is_empty());
+		assert_eq!(src.bits_mut::<BigEndian>()[4 .. 20].as_mut_slice(), [!0u8]);
+		assert_eq!(src.bits_mut::<BigEndian>()[4 ..].as_mut_slice(), [!0u8, 0]);
+		assert_eq!(src.bits_mut::<BigEndian>()[.. 20].as_mut_slice(), [0u8, !0]);
+		assert_eq!(src.bits_mut::<BigEndian>().as_mut_slice(), [0u8, !0, 0]);
+
+		let cpy = src.clone();
+
+		unsafe {
+		assert!(BitSlice::<BigEndian, u8>::empty_mut().as_total_mut_slice().is_empty());
+		assert_eq!(src.bits_mut::<BigEndian>()[ 9 .. 15].as_total_mut_slice(), [!0]);
+		assert_eq!(src.bits_mut::<BigEndian>()[4 .. 20].as_total_mut_slice(), cpy);
+		assert_eq!(src.bits_mut::<BigEndian>()[4 ..].as_total_mut_slice(), cpy);
+		assert_eq!(src.bits_mut::<BigEndian>()[.. 20].as_total_mut_slice(), cpy);
+		assert_eq!(src.bits_mut::<BigEndian>().as_total_mut_slice(), cpy);
+		}
+	}
+
+	#[test]
+	fn guard() {
+		let mut src = 0u16;
+
+		let mut guard = src.bits_mut::<BigEndian>().at(9);
+		assert!(!*guard);
+		*guard = true;
+		assert!(*guard);
 	}
 }

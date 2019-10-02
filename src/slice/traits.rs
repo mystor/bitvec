@@ -50,8 +50,13 @@ where C: Cursor, T: BitStore {}
 impl<C, T> Ord for BitSlice<C, T>
 where C: Cursor, T: BitStore {
 	fn cmp(&self, rhs: &Self) -> Ordering {
-		self.partial_cmp(rhs)
-			.unwrap_or_else(|| unreachable!("`BitSlice` has a total ordering"))
+		match self.partial_cmp(rhs) {
+			Some(ord) => ord,
+			//  `BitSlice` has a total ordering, and will never fail to produce
+			//  a comparison. As such, this arm will never be encountered, and
+			//  the `Option` discriminant can be removed without inspection.
+			None => unsafe { core::hint::unreachable_unchecked() },
+		}
 	}
 }
 
@@ -62,29 +67,6 @@ where A: Cursor, B: BitStore, C: Cursor, D: BitStore {
 			return false;
 		}
 		self.iter().zip(rhs.iter()).all(|(l, r)| l == r)
-	}
-}
-
-impl<A, B, C, D> PartialEq<BitSlice<C, D>> for &BitSlice<A, B>
-where A: Cursor, B: BitStore, C: Cursor, D: BitStore {
-	fn eq(&self, rhs: &BitSlice<C, D>) -> bool {
-		(*self).eq(rhs)
-	}
-}
-
-#[cfg(feature = "alloc")]
-impl<A, B, C, D> PartialEq<BitVec<C, D>> for BitSlice<A, B>
-where A: Cursor, B: BitStore, C: Cursor, D: BitStore {
-	fn eq(&self, rhs: &BitVec<C, D>) -> bool {
-		self.eq(rhs.as_bits())
-	}
-}
-
-#[cfg(feature = "alloc")]
-impl<A, B, C, D> PartialEq<BitVec<C, D>> for &BitSlice<A, B>
-where A: Cursor, B: BitStore, C: Cursor, D: BitStore {
-	fn eq(&self, rhs: &BitVec<C, D>) -> bool {
-		self.eq(rhs.as_bits())
 	}
 }
 
@@ -99,29 +81,6 @@ where A: Cursor, B: BitStore, C: Cursor, D: BitStore {
 			}
 		}
 		self.len().partial_cmp(&rhs.len())
-	}
-}
-
-impl<A, B, C, D> PartialOrd<BitSlice<C, D>> for &BitSlice<A, B>
-where A: Cursor, B: BitStore, C: Cursor, D: BitStore {
-	fn partial_cmp(&self, rhs: &BitSlice<C, D>) -> Option<Ordering> {
-		(*self).partial_cmp(rhs)
-	}
-}
-
-#[cfg(feature = "alloc")]
-impl<A, B, C, D> PartialOrd<BitVec<C, D>> for BitSlice<A, B>
-where A: Cursor, B: BitStore, C: Cursor, D: BitStore {
-	fn partial_cmp(&self, rhs: &BitVec<C, D>) -> Option<Ordering> {
-		self.partial_cmp(rhs.as_bits())
-	}
-}
-
-#[cfg(feature = "alloc")]
-impl<A, B, C, D> PartialOrd<BitVec<C, D>> for &BitSlice<A, B>
-where A: Cursor, B: BitStore, C: Cursor, D: BitStore {
-	fn partial_cmp(&self, rhs: &BitVec<C, D>) -> Option<Ordering> {
-		(*self).partial_cmp(rhs.as_bits())
 	}
 }
 
@@ -235,6 +194,12 @@ where C: Cursor, T: BitStore {
 					str::from_utf8_unchecked(&w[from .. to])
 				}));
 			}
+
+			fn write_all<C, T>(l: &mut DebugList, w: &mut [u8; 64], b: &[T])
+			where C: Cursor, T: BitStore {
+				b.iter().for_each(|e| writer::<C, T>(l, w, e, 0, T::BITS));
+			}
+
 			match self.bitptr().domain() {
 				BitDomain::Empty => {},
 				BitDomain::Minor(head, elt, tail) => {
@@ -242,27 +207,19 @@ where C: Cursor, T: BitStore {
 				},
 				BitDomain::Major(h, head, body, tail, t) => {
 					writer::<C, T>(&mut dbg, &mut w, &head.load(), *h, T::BITS);
-					for elt in body {
-						writer::<C, T>(&mut dbg, &mut w, elt, 0, T::BITS);
-					}
+					write_all::<C, T>(&mut dbg, &mut w, body);
 					writer::<C, T>(&mut dbg, &mut w, &tail.load(), 0, *t);
 				},
 				BitDomain::PartialHead(h, head, body) => {
 					writer::<C, T>(&mut dbg, &mut w, &head.load(), *h, T::BITS);
-					for elt in body {
-						writer::<C, T>(&mut dbg, &mut w, elt, 0, T::BITS);
-					}
+					write_all::<C, T>(&mut dbg, &mut w, body);
 				},
 				BitDomain::PartialTail(body, tail, t) => {
-					for elt in body {
-						writer::<C, T>(&mut dbg, &mut w, elt, 0, T::BITS);
-					}
+					write_all::<C, T>(&mut dbg, &mut w, body);
 					writer::<C, T>(&mut dbg, &mut w, &tail.load(), 0, *t);
 				},
 				BitDomain::Spanning(body) => {
-					for elt in body {
-						writer::<C, T>(&mut dbg, &mut w, elt, 0, T::BITS);
-					}
+					write_all::<C, T>(&mut dbg, &mut w, body);
 				},
 			}
 		}
@@ -331,3 +288,62 @@ never observe racing writes that *change memory*.
 #[cfg(feature = "atomic")]
 unsafe impl<C, T> Sync for BitSlice<C, T>
 where C: Cursor, T: BitStore {}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::prelude::*;
+
+	#[test]
+	fn cmp() {
+		let src = 0b0010_0100u8;
+		let a = &src.bits::<LittleEndian>()[.. 3];
+		let b = &src.bits::<LittleEndian>()[.. 4];
+		let c = &src.bits::<BigEndian>()[.. 4];
+		let d = &src.bits::<BigEndian>()[4 ..];
+
+		assert!(a < b);
+		assert!(b <= c);
+		assert!(b == c);
+		assert!(c < d);
+		assert!(c != d);
+
+		assert_eq!(a.cmp(b), Ordering::Less);
+		assert!(!a.eq(b));
+		assert_eq!(b.partial_cmp(c), Some(Ordering::Equal));
+		assert_eq!(c.partial_cmp(d), Some(Ordering::Less));
+	}
+
+	#[test]
+	fn ctors() {
+		let mut src = 0u8;
+
+		assert_eq!(<&BitSlice::<BigEndian, u8>>::from(&src).len(), 8);
+		assert_eq!(<&BitSlice::<BigEndian, u8>>::from(&[src][..]).len(), 8);
+		assert_eq!(<&mut BitSlice::<BigEndian, u8>>::from(&mut src).len(), 8);
+		assert_eq!(<&mut BitSlice::<BigEndian, u8>>::from(&mut [src][..]).len(), 8);
+
+		assert!(<&BitSlice::<BigEndian, u8>>::default().is_empty());
+		assert!(<&mut BitSlice::<BigEndian, u8>>::default().is_empty());
+	}
+
+	#[test]
+	fn fmt() {
+		let src = [0xF0u8, 0x96];
+
+		let minor = &src.bits::<LittleEndian>()[1 .. 7];
+		assert_eq!(format!("{}", minor), "[000111]");
+
+		let major = &src.bits::<BigEndian>()[1 .. 15];
+		assert_eq!(format!("{}", major), "[1110000, 1001011]");
+
+		let ph = &src.bits::<LittleEndian>()[2 ..];
+		assert_eq!(format!("{}", ph), "[001111, 01101001]");
+
+		let pt = &src.bits::<BigEndian>()[.. 14];
+		assert_eq!(format!("{}", pt), "[11110000, 100101]");
+
+		assert_eq!(format!("{}", src.bits::<LittleEndian>()), "[00001111, 01101001]");
+		assert_eq!(format!("{:?}", src.bits::<BigEndian>()), "BitSlice<bitvec::cursor::BigEndian, u8> [11110000, 10010110]");
+	}
+}
