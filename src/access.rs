@@ -59,12 +59,6 @@ where T: BitStore {
 	}
 
 	fn load(&self) -> T;
-
-	#[inline(always)]
-	unsafe fn base_slice_mut(this: &[Self]) -> &mut [T]
-	where Self: Sized {
-		&mut *(this as *const [Self] as *const [T] as *mut [T])
-	}
 }
 
 macro_rules! access {

@@ -270,6 +270,12 @@ where T: 'a + BitStore {
 		let (h, t) = (bitptr.head(), bitptr.tail());
 		let data = bitptr.as_access_slice();
 
+		/// Converts a slice of `BitAccess` to a mutable slice of `BitStore`.
+		unsafe fn base_slice_mut<A, T>(this: &[A]) -> &mut [T]
+		where T: BitStore, A: BitAccess<T> {
+			&mut *(this as *const [A] as *const [T] as *mut [T])
+		}
+
 		match bitptr.domain_kind() {
 			Bdk::Empty => BitDomainMut::Empty,
 			Bdk::Minor => BitDomainMut::Minor(h, &data[0], t),
@@ -280,21 +286,21 @@ where T: 'a + BitStore {
 				let (tail, body) = body
 					.split_last()
 					.expect("Major cannot fail to split tail");
-				let body = unsafe { BitAccess::base_slice_mut(body) };
+				let body = unsafe { base_slice_mut(body) };
 				BitDomainMut::Major(h, head, body, tail, t)
 			},
 			Bdk::PartialHead => {
 				let (head, tail) = data
 					.split_first()
 					.expect("PartialHead cannot fail to split");
-				let tail = unsafe { BitAccess::base_slice_mut(tail) };
+				let tail = unsafe { base_slice_mut(tail) };
 				BitDomainMut::PartialHead(h, head, tail)
 			},
 			Bdk::PartialTail => {
 				let (tail, head) = data
 					.split_last()
 					.expect("PartialTail cannot fail to split");
-				let head = unsafe { BitAccess::base_slice_mut(head) };
+				let head = unsafe { base_slice_mut(head) };
 				BitDomainMut::PartialTail(head, tail, t)
 			},
 			Bdk::Spanning => BitDomainMut::Spanning(bitptr.as_mut_slice()),

@@ -188,25 +188,25 @@ where T: BitStore {
 
 macro_rules! impl_bits_for {
 	( $( $n:expr )* ) => { $(
-impl<T> Bits for [T; $n]
-where T: BitStore {
-	type Store = T;
+		impl<T> Bits for [T; $n]
+		where T: BitStore {
+			type Store = T;
 
-	#[inline]
-	fn bits<C>(&self) -> &BitSlice<C, Self::Store>
-	where C: Cursor {
-		BitSlice::from_slice(&self[..])
-	}
-}
+			#[inline]
+			fn bits<C>(&self) -> &BitSlice<C, Self::Store>
+			where C: Cursor {
+				BitSlice::from_slice(&self[..])
+			}
+		}
 
-impl<T> BitsMut for [T; $n]
-where T: BitStore {
-	#[inline]
-	fn bits_mut<C>(&mut self) -> &mut BitSlice<C, Self::Store>
-	where C: Cursor {
-		BitSlice::from_slice_mut(&mut self[..])
-	}
-}
+		impl<T> BitsMut for [T; $n]
+		where T: BitStore {
+			#[inline]
+			fn bits_mut<C>(&mut self) -> &mut BitSlice<C, Self::Store>
+			where C: Cursor {
+				BitSlice::from_slice_mut(&mut self[..])
+			}
+		}
 	)* };
 }
 
@@ -219,86 +219,86 @@ impl_bits_for! {
 
 macro_rules! impl_ref_for {
 	( $( $t:ty ),* ) => { $(
-#[doc(hidden)]
-impl<C> AsMut<BitSlice<C, $t>> for $t
-where C: Cursor {
-	#[inline]
-	fn as_mut(&mut self) -> &mut BitSlice<C, $t> {
-		BitsMut::bits_mut(self)
-	}
-}
+		#[doc(hidden)]
+		impl<C> AsMut<BitSlice<C, $t>> for $t
+		where C: Cursor {
+			#[inline]
+			fn as_mut(&mut self) -> &mut BitSlice<C, $t> {
+				BitsMut::bits_mut(self)
+			}
+		}
 
-#[doc(hidden)]
-impl<C> AsRef<BitSlice<C, $t>> for $t
-where C: Cursor {
-	#[inline]
-	fn as_ref(&self) -> &BitSlice<C, $t> {
-		Bits::bits(self)
-	}
-}
+		#[doc(hidden)]
+		impl<C> AsRef<BitSlice<C, $t>> for $t
+		where C: Cursor {
+			#[inline]
+			fn as_ref(&self) -> &BitSlice<C, $t> {
+				Bits::bits(self)
+			}
+		}
 
-#[doc(hidden)]
-impl<C> AsMut<BitSlice<C, $t>> for [$t]
-where C: Cursor {
-	#[inline]
-	fn as_mut(&mut self) -> &mut BitSlice<C, $t> {
-		BitsMut::bits_mut(self)
-	}
-}
+		#[doc(hidden)]
+		impl<C> AsMut<BitSlice<C, $t>> for [$t]
+		where C: Cursor {
+			#[inline]
+			fn as_mut(&mut self) -> &mut BitSlice<C, $t> {
+				BitsMut::bits_mut(self)
+			}
+		}
 
-#[doc(hidden)]
-impl<C> AsRef<BitSlice<C, $t>> for [$t]
-where C: Cursor {
-	#[inline]
-	fn as_ref(&self) -> &BitSlice<C, $t> {
-		Bits::bits(self)
-	}
-}
+		#[doc(hidden)]
+		impl<C> AsRef<BitSlice<C, $t>> for [$t]
+		where C: Cursor {
+			#[inline]
+			fn as_ref(&self) -> &BitSlice<C, $t> {
+				Bits::bits(self)
+			}
+		}
 
-#[doc(hidden)]
-impl<C> AsMut<BitSlice<C, $t>> for [$t; 0]
-where C: Cursor {
-	#[inline]
-	fn as_mut(&mut self) -> &mut BitSlice<C, $t> {
-		BitsMut::bits_mut(self)
-	}
-}
+		#[doc(hidden)]
+		impl<C> AsMut<BitSlice<C, $t>> for [$t; 0]
+		where C: Cursor {
+			#[inline]
+			fn as_mut(&mut self) -> &mut BitSlice<C, $t> {
+				BitsMut::bits_mut(self)
+			}
+		}
 
-#[doc(hidden)]
-impl<C> AsRef<BitSlice<C, $t>> for [$t; 0]
-where C: Cursor {
-	#[inline]
-	fn as_ref(&self) -> &BitSlice<C, $t> {
-		Bits::bits(self)
-	}
-}
+		#[doc(hidden)]
+		impl<C> AsRef<BitSlice<C, $t>> for [$t; 0]
+		where C: Cursor {
+			#[inline]
+			fn as_ref(&self) -> &BitSlice<C, $t> {
+				Bits::bits(self)
+			}
+		}
 
-impl_ref_for! { array $t ;
-	    1  2  3  4  5  6  7  8  9
-	10 11 12 13 14 15 16 17 18 19
-	20 21 22 23 24 25 26 27 28 29
-	30 31 32
-}
+		impl_ref_for! { array $t ;
+			    1  2  3  4  5  6  7  8  9
+			10 11 12 13 14 15 16 17 18 19
+			20 21 22 23 24 25 26 27 28 29
+			30 31 32
+		}
 	)* };
 
 	( array $t:ty ; $( $n:expr )* ) => { $(
-#[doc(hidden)]
-impl<C> AsMut<BitSlice<C, $t>> for [$t; $n]
-where C: Cursor {
-	#[inline]
-	fn as_mut(&mut self) -> &mut BitSlice<C, $t> {
-		BitsMut::bits_mut(self)
-	}
-}
+		#[doc(hidden)]
+		impl<C> AsMut<BitSlice<C, $t>> for [$t; $n]
+		where C: Cursor {
+			#[inline]
+			fn as_mut(&mut self) -> &mut BitSlice<C, $t> {
+				BitsMut::bits_mut(self)
+			}
+		}
 
-#[doc(hidden)]
-impl<C> AsRef<BitSlice<C, $t>> for [$t; $n]
-where C: Cursor {
-	#[inline]
-	fn as_ref(&self) -> &BitSlice<C, $t> {
-		Bits::bits(self)
-	}
-}
+		#[doc(hidden)]
+		impl<C> AsRef<BitSlice<C, $t>> for [$t; $n]
+		where C: Cursor {
+			#[inline]
+			fn as_ref(&self) -> &BitSlice<C, $t> {
+				Bits::bits(self)
+			}
+		}
 	)* };
 }
 
