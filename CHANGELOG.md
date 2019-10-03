@@ -64,6 +64,7 @@ The minimum compiler version is now `1.38.0`.
 - Rust `1.38.0` stabilized the function `core::any::type_name::<T>()`, which
   names a type for debugging purposes. This eliminates the need for `TYPENAME`
   trait constants.
+- `BitSlice::change_cursor{,_mut}` allowed aliasing memory.
 
 ## 0.15.2
 

@@ -2209,68 +2209,6 @@ where C: Cursor, T: BitStore {
 		self.bitptr().as_mut_slice()
 	}
 
-	/// Changes the cursor type of the slice handle.
-	///
-	/// # Parameters
-	///
-	/// - `&self`
-	///
-	/// # Returns
-	///
-	/// An equivalent slice handle with a new cursor type.
-	///
-	/// # Type Parameters
-	///
-	/// - `D: Cursor` The new cursor type to use for the handle.
-	///
-	/// # Examples
-	///
-	/// ```rust
-	/// use bitvec::prelude::*;
-	///
-	/// let src = 2u8;
-	/// let bits = src.bits::<BigEndian>();
-	/// assert!(bits[6]);
-	/// let bits = bits.change_cursor::<LittleEndian>();
-	/// assert!(bits[1]);
-	/// ```
-	pub fn change_cursor<D>(&self) -> &BitSlice<D, T>
-	where D: Cursor {
-		self.bitptr().into_bitslice()
-	}
-
-	/// Changes the cursor type of the slice handle.
-	///
-	/// # Parameters
-	///
-	/// - `&mut self`
-	///
-	/// # Returns
-	///
-	/// An equivalent slice handle with a new cursor type.
-	///
-	/// # Type Parameters
-	///
-	/// - `D: Cursor` The new cursor type to use for the handle.
-	///
-	/// # Examples
-	///
-	/// ```rust
-	/// use bitvec::prelude::*;
-	///
-	/// let mut src = 0u8;
-	/// *src.bits_mut::<BigEndian>().at(1) = true;
-	/// assert_eq!(src, 64);
-	/// src.bits_mut::<BigEndian>()
-	///    .change_cursor_mut::<LittleEndian>()
-	///    .set(1, true);
-	/// assert_eq!(src, 66);
-	/// ```
-	pub fn change_cursor_mut<D>(&mut self) -> &mut BitSlice<D, T>
-	where D: Cursor {
-		self.bitptr().into_bitslice_mut()
-	}
-
 	/// Unconditionally copies a bit from one index to another.
 	///
 	/// This is equivalent to `self[to] = self[from]`.

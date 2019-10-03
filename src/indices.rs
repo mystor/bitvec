@@ -256,44 +256,6 @@ where T: BitStore {
 	}
 }
 
-/** Crate-internal mechanism for turning known-good bare indices into `BitIdx`.
-
-This is not exposed, because it is a thin wrapper over `BitIdx::new_unchecked`.
-It is used only within the crate to wrap known-good index values as a shorthand.
-**/
-#[doc(hidden)]
-pub(crate) trait IntoBitIdx {
-	fn idx<T>(self) -> BitIdx<T>
-	where T: BitStore;
-
-	fn tail_idx<T>(self) -> TailIdx<T>
-	where T: BitStore;
-}
-
-impl IntoBitIdx for u8 {
-	fn idx<T>(self) -> BitIdx<T>
-	where T: BitStore {
-		debug_assert!(
-			self < T::BITS,
-			"Bit index {} must be less than the width {}",
-			self,
-			T::BITS,
-		);
-		unsafe { BitIdx::<T>::new_unchecked(self) }
-	}
-
-	fn tail_idx<T>(self) -> TailIdx<T>
-	where T: BitStore {
-		debug_assert!(
-			self <= T::BITS,
-			"Bit index {} must be less than or equal to the width {}",
-			self,
-			T::BITS,
-		);
-		unsafe { TailIdx::<T>::new_unchecked(self) }
-	}
-}
-
 /** Marks that an index is to a dead bit, and cannot be used for indexing.
 
 This type is equivalent to `BitIdx<T>`, except it includes `T::BITS` in its
@@ -647,6 +609,46 @@ where T: BitStore {
 
 	fn deref(&self) -> &Self::Target {
 		&self.mask
+	}
+}
+
+/** Crate-internal mechanism for turning known-good bare indices into `BitIdx`.
+
+This is not exposed, because it is a thin wrapper over `BitIdx::new_unchecked`.
+It is used only within the crate to wrap known-good index values as a shorthand.
+**/
+#[doc(hidden)]
+pub(crate) trait IntoBitIdx {
+	/// Produces a new bit index for a given position.
+	fn idx<T>(self) -> BitIdx<T>
+	where T: BitStore;
+
+	/// Produces a new tail index for a given position.
+	fn tail_idx<T>(self) -> TailIdx<T>
+	where T: BitStore;
+}
+
+impl IntoBitIdx for u8 {
+	fn idx<T>(self) -> BitIdx<T>
+	where T: BitStore {
+		debug_assert!(
+			self < T::BITS,
+			"Bit index {} must be less than the width {}",
+			self,
+			T::BITS,
+		);
+		unsafe { BitIdx::<T>::new_unchecked(self) }
+	}
+
+	fn tail_idx<T>(self) -> TailIdx<T>
+	where T: BitStore {
+		debug_assert!(
+			self <= T::BITS,
+			"Bit index {} must be less than or equal to the width {}",
+			self,
+			T::BITS,
+		);
+		unsafe { TailIdx::<T>::new_unchecked(self) }
 	}
 }
 
