@@ -127,6 +127,7 @@ pub fn bits(input: TokenStream) -> TokenStream {
 				}
 			},
 			Store::Word => {
+				let bv: BitVec<Lsb0, u64> = bits.collect();
 				let buf = bv.as_slice();
 				quote! {
 					&::bitvec::slice::BitSlice::<
@@ -178,6 +179,7 @@ pub fn bits(input: TokenStream) -> TokenStream {
 				}
 			},
 			Store::Word => {
+				let bv: BitVec<Msb0, Word> = bits.collect();
 				let buf = bv.as_slice();
 				quote! {
 					&::bitvec::slice::BitSlice::<
