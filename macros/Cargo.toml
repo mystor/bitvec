@@ -1,0 +1,20 @@
+[package]
+name = "bitvec_macros"
+version = "0.17.0"
+authors = [
+	"myrrlyn <self@myrrlyn.dev>",
+]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+proc-macro-hack = "0.5"
+
+[dependencies.bitvec_macros_impl]
+version = "0.17"
+path = "impl"
+
+[dev-dependencies.bitvec]
+version = "0.17"
+path = ".."

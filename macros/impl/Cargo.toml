@@ -1,0 +1,22 @@
+[package]
+name = "bitvec_macros_impl"
+version = "0.17.0"
+authors = ["myrrlyn <self@myrrlyn.dev>"]
+edition = "2018"
+
+[lib]
+proc-macro = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+proc-macro-hack = "0.5"
+quote = "1"
+syn = "1"
+
+[dependencies.bitvec]
+path = "../.."
+version = "0.17"
+features = [
+	"alloc",
+]

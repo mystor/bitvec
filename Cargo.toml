@@ -88,3 +88,9 @@ repository = "myrrlyn/bitvec"
 
 [badges.maintenance]
 status = "actively-developed"
+
+[workspace]
+members = [
+	"macros",
+	"macros/impl",
+]
