@@ -21,10 +21,10 @@ fn check_bitslice_proc_macro() {
 	assert!(bs.is_empty());
 
 	let bs: &'static BitSlice<Msb0, u8> = bits![Msb0, u8];
-	assert_eq!(bs.is_empty());
+	assert!(bs.is_empty());
 
 	let bs: &'static BitSlice<Lsb0, u8> = bits![Lsb0, u8];
-	assert_eq!(bs.is_empty());
+	assert!(bs.is_empty());
 
 	let bs: &'static BitSlice<Local, Word> = bits![1, 0, 1, 1];
 	assert_eq!(bs.len(), 4);

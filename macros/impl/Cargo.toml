@@ -12,11 +12,16 @@ proc-macro = true
 [dependencies]
 proc-macro-hack = "0.5"
 quote = "1"
-syn = "1"
 
 [dependencies.bitvec]
 path = "../.."
 version = "0.17"
 features = [
 	"alloc",
+]
+
+[dependencies.syn]
+version = "1"
+features = [
+	"full",
 ]

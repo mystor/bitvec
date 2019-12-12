@@ -21,10 +21,10 @@ fn check_bitvec_proc_macro() {
 	assert!(bv.is_empty());
 
 	let bv: BitVec<Msb0, u8> = bitvec![Msb0, u8];
-	assert_eq!(bv.is_empty());
+	assert!(bv.is_empty());
 
 	let bv: BitVec<Lsb0, u8> = bitvec![Lsb0, u8];
-	assert_eq!(bv.is_empty());
+	assert!(bv.is_empty());
 
 	let bv: BitVec<Local, Word> = bitvec![1, 0, 1, 1];
 	assert_eq!(bv.len(), 4);
