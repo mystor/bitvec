@@ -1,5 +1,62 @@
 /*! Constructor macros for `bitvec` types.
 
+This file provides the implementation of the `bits!`, `bitvec!`, and `bitbox!`
+constructor macros. These macros compute `BitSlice<O, T>` buffer contents and
+inject the buffers into the artifact’s static memory. Handles to those buffers
+are constructed at runtime, but this construction is very fast since the buffers
+are already initialized.
+
+The grammar for these macros is:
+
+```text
+[ $order [ , $store ] ]; [ ( ( 1 | 0 ),* [ , ] ) | ( ( 1 | 0 ) ; $num ) ]
+```
+
+If the first token in the call is an *identifier*, then it must be usable as a
+`BitOrder` type parameter. `bits!` has the special requirement that this must
+be one of the exact identifiers `Msb0`, `Lsb0`, or `Local` in order to produce a
+`&BitSlice` immediate value. `bitvec!` and `bitbox!` are able to take any
+identifier, as long as it implements `BitOrder`.
+
+If the first identifier is followed by a comma, it must also be followed by a
+second identifier. The second identifier **must** be one of `u8`, `u16`, `u32`,
+`u64` (only when compiling both *on* a 64-bit host and *for* a 64-bit target),
+or `Local`. `Local` is valid only when the host and target systems have the same
+CPU pointer width.
+
+If both this header and a data body exist, they must be separated by a
+semicolon. If either section (type header, data body) are absent, the semicolon
+is not required.
+
+The data body must consist of a sequence of zero or more integer (`i32`
+specifically) literals, inter-punctuated by commas. Trailing commas are valid.
+Any non-`i32` literal is invalid. These integers are not *required* to be
+constrained to `0` and `1`; they will be cast to `bool` by testing `LIT != 0`.
+
+Alternatively, the data body must consist of one integer literal, a semicolon,
+and one `usize` literal.
+
+As a summary, the following are valid call grammars:
+
+- `[]`: Empty slice, `<Local, Word>` types
+
+- `[ $ord:ident $( ; )? ]`: Empty slice, `<$ord, Word>` types
+- `[ $ord:ident , $typ:ident $( ; )? ]`: Empty slice, `<$ord, $typ>` types
+
+- `[ $( $bit ),* ]` and `[ $( $bit ,)* ]`: Slice with data, `<Local, Word>`
+  types
+- `[ $ord:ident ; $( $bit ),* ]` and `[ $ord:ident ; $( $bit ,)* ]`: Slice with
+  data, `<$ord, Word>` types
+- `[ $ord:ident , $typ:ident ; $( $bit ),* ]` and
+  `[ $ord:ident , $typ:ident ; $( $bit ,)* ]`: Slice witd data, `<$ord, $typ>`
+  types
+
+- `[ $bit:literal ; $rep:literal ]`: Slice of `$rep` counts of `$bit`;
+  `<Local, Word>` types
+- `[ $ord:ident ; $bit:literal ; $rep:literal ]`: Slice of `$rep` counts of
+  `$bit`; `<$ord, Word>` types
+- `[ $ord:ident , $typ:ident ; $bit:literal ; $rep:literal ]`: Slice of `$rep`
+  counts of `$bit`; `<$ord, $typ>` types
 !*/
 
 extern crate bitvec;
@@ -23,6 +80,19 @@ use syn::{
 	},
 };
 
+/** Produces a `&'static BitSlice<O, T>` reference.
+
+Currently, `&'static mut` production is not supported. This is a future work
+item.
+
+If present, the ordering type *must* be one of the types exported by `bitvec`,
+without its name changed.
+
+This macro computes the correct buffer values, then tokenizes them and places
+them as numeric literals in the output `TokenStream`. This ensures that byte
+endianness will match for the target, even if the target system does not match
+the host.
+**/
 #[proc_macro_hack]
 pub fn bits(input: TokenStream) -> TokenStream {
 	let Args {
@@ -197,6 +267,15 @@ pub fn bits(input: TokenStream) -> TokenStream {
 	}.into()
 }
 
+/** Produces a `BitVec` object.
+
+This macro computes the correct buffer values, then tokenizes them as `BitSlice`
+does. If the ordering type is one of `bitvec`’s exports, then the buffer will be
+usable as-is; if it is unknown, then the produced `TokenStream` will cause the
+stored buffer to be reördered upon evaluation. If the type is known, then the
+`TokenStream` will cause the buffer to be loaded into the heap, and then be
+immediately ready as a `BitVec`.
+**/
 #[proc_macro_hack]
 pub fn bitvec(input: TokenStream) -> TokenStream {
 	let Args {
@@ -480,6 +559,8 @@ pub fn bitvec(input: TokenStream) -> TokenStream {
 	}.into()
 }
 
+/// Forwards the arguments to `bitvec!`, then appends `.into_boxed_bitslice()`
+/// to the resulting `TokenStream`.
 #[proc_macro_hack]
 pub fn bitbox(input: TokenStream) -> TokenStream {
 	let mut tokens = bitvec(input);
@@ -506,7 +587,7 @@ impl Parse for Args {
 				out.store = input.parse()?;
 			}
 			//  If tokens remain after the types, they must begin with a `;`
-			if input.peek(Token![;]) {
+			if !input.is_empty() {
 				input.parse::<Token![;]>()?;
 			}
 		}
@@ -571,12 +652,11 @@ impl Parse for Store {
 			"u32" => Store::U32,
 			"u64" => Store::U64,
 			"Word" => Store::Word,
-			_ => return Err(
-				input.error(
-					"Storage type must be `Word` or one of the Rust unsigned \
-					integer types",
-				),
-			),
+			_ => return Err(syn::Error::new(
+				ident.span(),
+				"Storage type must be `Word` or one of the Rust unsigned \
+				integer types",
+			)),
 		})
 	}
 }
@@ -589,20 +669,32 @@ impl Parse for Buffer {
 		if input.is_empty() {
 			return Ok(Self::default());
 		}
-		let first = input.parse::<LitInt>()?.base10_parse::<i32>()?;
+		let look = input.lookahead1();
+		let first = if look.peek(LitInt) {
+			input.parse::<LitInt>()?.base10_parse::<i32>()?
+		}
+		else {
+			return Err(look.error());
+		};
+		//  `; LitInt` is the repetition syntax
 		if input.peek(Token![;]) {
 			input.parse::<Token![;]>()?;
 			let second = input.parse::<LitInt>()?.base10_parse()?;
 			return Ok(Buffer(iter::repeat(first != 0).take(second).collect()));
 		}
+		//  Otherwise, this is the sequence syntax
 		let mut seq = BitVec::with_capacity(1);
 		seq.push(first != 0);
-		while !input.is_empty() {
+		//  Collect `, LitInt`
+		while input.peek(Token![,]) {
+			//  Skip the `,` token
 			input.parse::<Token![,]>()?;
+			//  If the input is now empty (trailing `,`), exit the loop
+			if input.is_empty() {
+				break;
+			}
+			//  If the input is non-empty, it must contain an integer literal.
 			seq.push(input.parse::<LitInt>()?.base10_parse::<i32>()? != 0);
-		}
-		if input.peek(Token![,]) {
-			input.parse::<Token![,]>()?;
 		}
 		Ok(Buffer(seq))
 	}
