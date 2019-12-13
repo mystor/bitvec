@@ -311,7 +311,7 @@ where O: BitOrder, T: BitStore {
 	/// ```
 	#[inline]
 	pub fn from_slice(slice: &[T]) -> Self {
-		BitSlice::<O, T>::from_slice(slice).to_owned()
+		Self::from_vec(slice.to_owned())
 	}
 
 	/// Consumes a `Vec<T>` and creates a `BitVec<C, T>` from it.
