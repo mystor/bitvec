@@ -60,13 +60,19 @@ As a summary, the following are valid call grammars:
 !*/
 
 extern crate bitvec;
-extern crate proc_macro;
+extern crate proc_macro as pm;
+extern crate proc_macro2 as pm2;
 extern crate proc_macro_hack;
 extern crate quote;
 extern crate syn;
 
-use bitvec::prelude::*;
-use proc_macro::TokenStream;
+use bitvec::prelude::{
+	BitVec,
+	Local,
+	Lsb0,
+	Msb0,
+	Word,
+};
 use proc_macro_hack::proc_macro_hack;
 use quote::quote;
 use std::iter;
@@ -94,490 +100,155 @@ endianness will match for the target, even if the target system does not match
 the host.
 **/
 #[proc_macro_hack]
-pub fn bits(input: TokenStream) -> TokenStream {
-	let Args {
-		store,
-		order,
-		buffer,
-	} = syn::parse_macro_input!(input as Args);
-	let Buffer(bv) = buffer;
-	let len = bv.len();
-	let bits = bv.iter().copied();
-	match order {
-		Order::Local => match store {
-			Store::U8 => {
-				let bv: BitVec<Local, u8> = bits.collect();
-				let buf = bv.as_slice();
-				quote! {
-					&::bitvec::slice::BitSlice::<
-						::bitvec::order::Local,
-						u8,
-					>::from_slice(&[#( #buf ),*])[.. #len]
-				}
-			},
-			Store::U16 => {
-				let bv: BitVec<Local, u16> = bits.collect();
-				let buf = bv.as_slice();
-				quote! {
-					&::bitvec::slice::BitSlice::<
-						::bitvec::order::Local,
-						u16,
-					>::from_slice(&[#( #buf ),*])[.. #len]
-				}
-			},
-			Store::U32 => {
-				let bv: BitVec<Local, u32> = bits.collect();
-				let buf = bv.as_slice();
-				quote! {
-					&::bitvec::slice::BitSlice::<
-						::bitvec::order::Local,
-						u32,
-					>::from_slice(&[#( #buf ),*])[.. #len]
-				}
-			},
-			Store::U64 => {
-				let bv: BitVec<Local, u64> = bits.collect();
-				let buf = bv.as_slice();
-				quote! {
-					&::bitvec::slice::BitSlice::<
-						::bitvec::order::Local,
-						u64,
-					>::from_slice(&[#( #buf ),*])[.. #len]
-				}
-			},
-			Store::Word => {
-				let buf = bv.as_slice();
-				quote! {
-					&::bitvec::slice::BitSlice::<
-						::bitvec::order::Local,
-						::bitvec::store::Word,
-					>::from_slice(&[#( #buf ),*])[.. #len]
-				}
-			},
-		},
-		Order::Lsb0 => match store {
-			Store::U8 => {
-				let bv: BitVec<Lsb0, u8> = bits.collect();
-				let buf = bv.as_slice();
-				quote! {
-					&::bitvec::slice::BitSlice::<
-						::bitvec::order::Lsb0,
-						u8,
-					>::from_slice(&[#( #buf ),*])[.. #len]
-				}
-				},
-			Store::U16 => {
-				let bv: BitVec<Lsb0, u16> = bits.collect();
-				let buf = bv.as_slice();
-				quote! {
-					&::bitvec::slice::BitSlice::<
-						::bitvec::order::Lsb0,
-						u16,
-					>::from_slice(&[#( #buf ),*])[.. #len]
-				}
-			},
-			Store::U32 => {
-				let bv: BitVec<Lsb0, u32> = bits.collect();
-				let buf = bv.as_slice();
-				quote! {
-					&::bitvec::slice::BitSlice::<
-						::bitvec::order::Lsb0,
-						u32,
-					>::from_slice(&[#( #buf ),*])[.. #len]
-				}
-			},
-			Store::U64 => {
-				let bv: BitVec<Lsb0, u64> = bits.collect();
-				let buf = bv.as_slice();
-				quote! {
-					&::bitvec::slice::BitSlice::<
-						::bitvec::order::Lsb0,
-						u64,
-					>::from_slice(&[#( #buf ),*])[.. #len]
-				}
-			},
-			Store::Word => {
-				let bv: BitVec<Lsb0, u64> = bits.collect();
-				let buf = bv.as_slice();
-				quote! {
-					&::bitvec::slice::BitSlice::<
-						::bitvec::order::Lsb0,
-						::bitvec::store::Word,
-					>::from_slice(&[#( #buf ),*])[.. #len]
-				}
-			},
-		},
-		Order::Msb0 => match store {
-			Store::U8 => {
-				let bv: BitVec<Msb0, u8> = bits.collect();
-				let buf = bv.as_slice();
-				quote! {
-					&::bitvec::slice::BitSlice::<
-						::bitvec::order::Msb0,
-						u8,
-					>::from_slice(&[#( #buf ),*])[.. #len]
-				}
-			},
-			Store::U16 => {
-				let bv: BitVec<Msb0, u16> = bits.collect();
-				let buf = bv.as_slice();
-				quote! {
-					&::bitvec::slice::BitSlice::<
-						::bitvec::order::Msb0,
-						u16,
-					>::from_slice(&[#( #buf ),*])[.. #len]
-				}
-			},
-			Store::U32 => {
-				let bv: BitVec<Msb0, u32> = bits.collect();
-				let buf = bv.as_slice();
-				quote! {
-					&::bitvec::slice::BitSlice::<
-						::bitvec::order::Msb0,
-						u32,
-					>::from_slice(&[#( #buf ),*])[.. #len]
-				}
-			},
-			Store::U64 => {
-				let bv: BitVec<Msb0, u64> = bits.collect();
-				let buf = bv.as_slice();
-				quote! {
-					&::bitvec::slice::BitSlice::<
-						::bitvec::order::Msb0,
-						u64,
-					>::from_slice(&[#( #buf ),*])[.. #len]
-				}
-			},
-			Store::Word => {
-				let bv: BitVec<Msb0, Word> = bits.collect();
-				let buf = bv.as_slice();
-				quote! {
-					&::bitvec::slice::BitSlice::<
-						::bitvec::order::Msb0,
-						::bitvec::store::Word,
-					>::from_slice(&[#( #buf ),*])[.. #len]
-				}
-			},
-		},
-		Order::Unknown(ident) => syn::Error::new(
-			ident.span(),
-			"`BitOrder` implementors not provided by `bitvec` cannot be used \
-			in `bits!` construction of `&BitSlice`s",
-		).to_compile_error()
-	}.into()
+pub fn bits(input: pm::TokenStream) -> pm::TokenStream {
+	bits2(input.into()).unwrap_or_else(|err| err.to_compile_error()).into()
 }
 
-/** Produces a `BitVec` object.
-
-This macro computes the correct buffer values, then tokenizes them as `BitSlice`
-does. If the ordering type is one of `bitvec`’s exports, then the buffer will be
-usable as-is; if it is unknown, then the produced `TokenStream` will cause the
-stored buffer to be reördered upon evaluation. If the type is known, then the
-`TokenStream` will cause the buffer to be loaded into the heap, and then be
-immediately ready as a `BitVec`.
-**/
-#[proc_macro_hack]
-pub fn bitvec(input: TokenStream) -> TokenStream {
+fn bits2(tokens: pm2::TokenStream) -> syn::Result<pm2::TokenStream> {
 	let Args {
-		order,
+		r#mut,
 		store,
-		buffer,
-	} = syn::parse_macro_input!(input as Args);
-	let Buffer(bv) = buffer;
-	let len = bv.len();
-	let bits = bv.iter().copied();
-	match order {
-		Order::Local => match store {
-			Store::U8 => {
-				let bv: BitVec<Local, u8> = bits.collect();
-				let buf = bv.as_slice();
-				quote! {{
-					let mut out = ::bitvec::vec::BitVec::<
-						::bitvec::order::Local,
-						u8,
-					>::from_slice(&[#( #buf ),*]);
-					out.truncate(#len);
-					out
-				}}
-			},
-			Store::U16 => {
-				let bv: BitVec<Local, u16> = bits.collect();
-				let buf = bv.as_slice();
-				quote! {{
-					let mut out = ::bitvec::vec::BitVec::<
-						::bitvec::order::Local,
-						u16,
-					>::from_slice(&[#( #buf ),*]);
-					out.truncate(#len);
-					out
-				}}
-			},
-			Store::U32 => {
-				let bv: BitVec<Local, u32> = bits.collect();
-				let buf = bv.as_slice();
-				quote! {{
-					let mut out = ::bitvec::vec::BitVec::<
-						::bitvec::order::Local,
-						u32,
-					>::from_slice(&[#( #buf ),*]);
-					out.truncate(#len);
-					out
-				}}
-			},
-			Store::U64 => {
-				let bv: BitVec<Local, u64> = bits.collect();
-				let buf = bv.as_slice();
-				quote! {{
-					let mut out = ::bitvec::vec::BitVec::<
-						::bitvec::order::Local,
-						u64,
-					>::from_slice(&[#( #buf ),*]);
-					out.truncate(#len);
-					out
-				}}
-			},
-			Store::Word => {
-				let buf = bv.as_slice();
-				quote! {{
-					let mut out = ::bitvec::vec::BitVec::<
-						::bitvec::order::Local,
-						::bitvec::store::Word,
-					>::from_slice(&[#( #buf ),*]);
-					out.truncate(#len);
-					out
-				}}
-			},
-		}
-		Order::Lsb0 => match store {
-			Store::U8 => {
-				let bv: BitVec<Lsb0, u8> = bits.collect();
-				let buf = bv.as_slice();
-				quote! {{
-					let mut out = ::bitvec::vec::BitVec::<
-						::bitvec::order::Lsb0,
-						u8,
-					>::from_slice(&[#( #buf ),*]);
-					out.truncate(#len);
-					out
-				}}
-			},
-			Store::U16 => {
-				let bv: BitVec<Lsb0, u16> = bits.collect();
-				let buf = bv.as_slice();
-				quote! {{
-					let mut out = ::bitvec::vec::BitVec::<
-						::bitvec::order::Lsb0,
-						u16,
-					>::from_slice(&[#( #buf ),*]);
-					out.truncate(#len);
-					out
-				}}
-			},
-			Store::U32 => {
-				let bv: BitVec<Lsb0, u32> = bits.collect();
-				let buf = bv.as_slice();
-				quote! {{
-					let mut out = ::bitvec::vec::BitVec::<
-						::bitvec::order::Lsb0,
-						u32,
-					>::from_slice(&[#( #buf ),*]);
-					out.truncate(#len);
-					out
-				}}
-			},
-			Store::U64 => {
-				let bv: BitVec<Lsb0, u64> = bits.collect();
-				let buf = bv.as_slice();
-				quote! {{
-					let mut out = ::bitvec::vec::BitVec::<
-						::bitvec::order::Lsb0,
-						u64,
-					>::from_slice(&[#( #buf ),*]);
-					out.truncate(#len);
-					out
-				}}
-			},
-			Store::Word => {
-				let bv: BitVec<Lsb0, Word> = bits.collect();
-				let buf = bv.as_slice();
-				quote! {{
-					let mut out = ::bitvec::vec::BitVec::<
-						::bitvec::order::Lsb0,
-						::bitvec::store::Word,
-					>::from_slice(&[#( #buf ),*]);
-					out.truncate(#len);
-					out
-				}}
-			},
-		}
-		Order::Msb0 => match store {
-			Store::U8 => {
-				let bv: BitVec<Msb0, u8> = bits.collect();
-				let buf = bv.as_slice();
-				quote! {{
-					let mut out = ::bitvec::vec::BitVec::<
-						::bitvec::order::Msb0,
-						u8,
-					>::from_slice(&[#( #buf ),*]);
-					out.truncate(#len);
-					out
-				}}
-			},
-			Store::U16 => {
-				let bv: BitVec<Msb0, u16> = bits.collect();
-				let buf = bv.as_slice();
-				quote! {{
-					let mut out = ::bitvec::vec::BitVec::<
-						::bitvec::order::Msb0,
-						u16,
-					>::from_slice(&[#( #buf ),*]);
-					out.truncate(#len);
-					out
-				}}
-			},
-			Store::U32 => {
-				let bv: BitVec<Msb0, u32> = bits.collect();
-				let buf = bv.as_slice();
-				quote! {{
-					let mut out = ::bitvec::vec::BitVec::<
-						::bitvec::order::Msb0,
-						u32,
-					>::from_slice(&[#( #buf ),*]);
-					out.truncate(#len);
-					out
-				}}
-			},
-			Store::U64 => {
-				let bv: BitVec<Msb0, u64> = bits.collect();
-				let buf = bv.as_slice();
-				quote! {{
-					let mut out = ::bitvec::vec::BitVec::<
-						::bitvec::order::Msb0,
-						u64,
-					>::from_slice(&[#( #buf ),*]);
-					out.truncate(#len);
-					out
-				}}
-			},
-			Store::Word => {
-				let bv: BitVec<Msb0, Word> = bits.collect();
-				let buf = bv.as_slice();
-				quote! {{
-					let mut out = ::bitvec::vec::BitVec::<
-						::bitvec::order::Msb0,
-						::bitvec::store::Word,
-					>::from_slice(&[#( #buf ),*]);
-					out.truncate(#len);
-					out
-				}}
-			},
-		}
-		Order::Unknown(ident) => {
-			match store {
-				Store::U8 => {
-					let bv: BitVec<Local, u8> = bits.collect();
-					let buf = bv.as_slice();
-					quote! {
-						::bitvec::slice::BitSlice::<
-							::bitvec::order::Local,
-							u8,
-						>::from_slice(&[#( #buf ),*])[.. #len]
-							.iter()
-							.copied()
-							.collect::<::bitvec::vec::BitVec::<
-								#ident,
-								u8,
-							>>()
-					}
-				},
-				Store::U16 => {
-					let bv: BitVec<Local, u16> = bits.collect();
-					let buf = bv.as_slice();
-					quote! {
-						::bitvec::slice::BitSlice::<
-							::bitvec::order::Local,
-							u16,
-						>::from_slice(&[#( #buf ),*])[.. #len]
-							.iter()
-							.copied()
-							.collect::<::bitvec::vec::BitVec::<
-								#ident,
-								u16,
-							>>()
-					}
-				},
-				Store::U32 => {
-					let bv: BitVec<Local, u32> = bits.collect();
-					let buf = bv.as_slice();
-					quote! {
-						::bitvec::slice::BitSlice::<
-							::bitvec::order::Local,
-							u32,
-						>::from_slice(&[#( #buf ),*])[.. #len]
-							.iter()
-							.copied()
-							.collect::<::bitvec::vec::BitVec::<
-								#ident,
-								u32,
-							>>()
-					}
-				},
-				Store::U64 => {
-					let bv: BitVec<Local, u64> = bits.collect();
-					let buf = bv.as_slice();
-					quote! {
-						::bitvec::slice::BitSlice::<
-							::bitvec::order::Local,
-							u64,
-						>::from_slice(&[#( #buf ),*])[.. #len]
-							.iter()
-							.copied()
-							.collect::<::bitvec::vec::BitVec::<
-								#ident,
-								u64,
-							>>()
-					}
-				},
-				Store::Word => {
-					let bv: BitVec<Local, Word> = bits.collect();
-					let buf = bv.as_slice();
-					quote! {
-						::bitvec::slice::BitSlice::<
-							::bitvec::order::Local,
-							::bitvec::store::Word,
-						>::from_slice(&[#( #buf ),*])[.. #len]
-							.iter()
-							.copied()
-							.collect::<::bitvec::vec::BitVec::<
-								#ident,
-								::bitvec::store::Word,
-							>>()
-					}
-				},
-			}
-		},
-	}.into()
+		order,
+		inner,
+	} = syn::parse2(tokens)?;
+	Ok(match inner {
+		Buffer::Repeated(bit, tokens) => build_rep(r#mut, store, order, bit, tokens),
+		Buffer::Sequence(bv) => build_seq(r#mut, store, order, bv),
+	})
 }
 
-/// Forwards the arguments to `bitvec!`, then appends `.into_boxed_bitslice()`
-/// to the resulting `TokenStream`.
-#[proc_macro_hack]
-pub fn bitbox(input: TokenStream) -> TokenStream {
-	let mut tokens = bitvec(input);
-	tokens.extend(TokenStream::from(quote!( .into_boxed_bitslice() )));
-	tokens
+fn build_rep(
+	r#mut: bool,
+	store: Store,
+	order: Order,
+	bit: bool,
+	tokens: pm2::TokenStream,
+) -> pm2::TokenStream {
+	let elt = if bit {
+		quote!(::TRUE)
+	}
+	else {
+		quote!(::FALSE)
+	};
+	let func_tokens = func_tokens(r#mut);
+	let elt_tokens = iter::once(store.tokens()).chain(iter::once(elt));
+	let order_tokens = order.tokens();
+	let store_tokens = store.tokens();
+	let out = quote! {{
+		const BITS: usize = #tokens;
+
+		&::bitvec::slice::BitSlice::<
+			#order_tokens,
+			#store_tokens,
+		> #func_tokens (&[
+			#( #elt_tokens )*
+			; BITS / 8 + (BITS % 8 != 0) as usize
+		])[.. BITS]
+	}};
+	out.into()
+}
+
+fn build_seq(
+	r#mut: bool,
+	store: Store,
+	order: Order,
+	bv: BitVec,
+) -> pm2::TokenStream {
+	let len = bv.len();
+	let bits = bv.iter().copied();
+	let func_tokens = func_tokens(r#mut);
+	let order_tokens = order.tokens();
+	let store_tokens = store.tokens();
+	let buf_tokens = match store {
+		Store::U8 => {
+			let buf = match order {
+				Order::Local => bits.collect::<BitVec<Local, u8>>()
+					.into_boxed_slice(),
+				Order::Lsb0 => bits.collect::<BitVec<Lsb0, u8>>()
+					.into_boxed_slice(),
+				Order::Msb0 => bits.collect::<BitVec<Msb0, u8>>()
+					.into_boxed_slice(),
+			};
+			quote!(#( #buf ),*)
+		},
+		Store::U16 => {
+			let buf = match order {
+				Order::Local => bits.collect::<BitVec<Local, u16>>()
+					.into_boxed_slice(),
+				Order::Lsb0 => bits.collect::<BitVec<Lsb0, u16>>()
+					.into_boxed_slice(),
+				Order::Msb0 => bits.collect::<BitVec<Msb0, u16>>()
+					.into_boxed_slice(),
+			};
+			quote!(#( #buf ),*)
+		},
+		Store::U32 => {
+			let buf = match order {
+				Order::Local => bits.collect::<BitVec<Local, u32>>()
+					.into_boxed_slice(),
+				Order::Lsb0 => bits.collect::<BitVec<Lsb0, u32>>()
+					.into_boxed_slice(),
+				Order::Msb0 => bits.collect::<BitVec<Msb0, u32>>()
+					.into_boxed_slice(),
+			};
+			quote!(#( #buf ),*)
+		},
+		Store::U64 => {
+			let buf = match order {
+				Order::Local => bits.collect::<BitVec<Local, u64>>()
+					.into_boxed_slice(),
+				Order::Lsb0 => bits.collect::<BitVec<Lsb0, u64>>()
+					.into_boxed_slice(),
+				Order::Msb0 => bits.collect::<BitVec<Msb0, u64>>()
+					.into_boxed_slice(),
+			};
+			quote!(#( #buf ),*)
+		},
+		Store::Word => {
+			let buf = match order {
+				Order::Local => bits.collect::<BitVec<Local, Word>>()
+					.into_boxed_slice(),
+				Order::Lsb0 => bits.collect::<BitVec<Lsb0, Word>>()
+					.into_boxed_slice(),
+				Order::Msb0 => bits.collect::<BitVec<Msb0, Word>>()
+					.into_boxed_slice(),
+			};
+			quote!(#( #buf ),*)
+		},
+	};
+	quote! {
+		&::bitvec::slice::BitSlice::<
+			#order_tokens,
+			#store_tokens,
+		> #func_tokens (&[#buf_tokens])[.. #len]
+	}
+}
+
+fn func_tokens(is_mut: bool) -> pm2::TokenStream {
+	if is_mut {
+		quote!(::from_slice_mut)
+	}
+	else {
+		quote!(::from_slice)
+	}
 }
 
 #[derive(Clone, Debug, Default)]
 struct Args {
+	r#mut: bool,
 	order: Order,
 	store: Store,
-	buffer: Buffer,
+	inner: Buffer,
 }
 
 impl Parse for Args {
 	fn parse(input: ParseStream) -> syn::Result<Self> {
 		let mut out = Self::default();
+		//  The first token may be the keyword `mut`
+		if input.peek(Token![mut]) {
+			out.r#mut = true;
+			input.parse::<Token![mut]>()?;
+		}
 		//  The first identifier is the `Order`
 		if input.peek(Ident) {
 			out.order = input.parse()?;
@@ -591,17 +262,26 @@ impl Parse for Args {
 				input.parse::<Token![;]>()?;
 			}
 		}
-		out.buffer = input.parse().unwrap_or_default();
+		out.inner = input.parse().unwrap_or_default();
 		Ok(out)
 	}
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 enum Order {
 	Local,
 	Lsb0,
 	Msb0,
-	Unknown(Ident),
+}
+
+impl Order {
+	fn tokens(self) -> pm2::TokenStream {
+		match self {
+			Order::Local => quote!(::bitvec::order::Local),
+			Order::Lsb0 => quote!(::bitvec::order::Lsb0),
+			Order::Msb0 => quote!(::bitvec::order::Msb0),
+		}
+	}
 }
 
 impl Default for Order {
@@ -623,18 +303,33 @@ impl Parse for Order {
 			"Local" => Order::Local,
 			"Lsb0" => Order::Lsb0,
 			"Msb0" => Order::Msb0,
-			_ => Order::Unknown(ident),
+			_ => return Err(syn::Error::new(
+				ident.span(),
+				"Ordering type must be one of `Local`, `Lsb0`, or `Msb0`",
+			)),
 		})
 	}
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 enum Store {
 	U8,
 	U16,
 	U32,
 	U64,
 	Word,
+}
+
+impl Store {
+	fn tokens(self) -> pm2::TokenStream {
+		match self {
+			Store::U8 => quote!(u8),
+			Store::U16 => quote!(u16),
+			Store::U32 => quote!(u32),
+			Store::U64 => quote!(u64),
+			Store::Word => quote!(::bitvec::store::Word),
+		}
+	}
 }
 
 impl Default for Store {
@@ -661,8 +356,17 @@ impl Parse for Store {
 	}
 }
 
-#[derive(Clone, Debug, Default)]
-struct Buffer(BitVec<Local, Word>);
+#[derive(Clone, Debug)]
+enum Buffer {
+	Repeated(bool, pm2::TokenStream),
+	Sequence(BitVec),
+}
+
+impl Default for Buffer {
+	fn default() -> Self {
+		Buffer::Sequence(BitVec::new())
+	}
+}
 
 impl Parse for Buffer {
 	fn parse(input: ParseStream) -> syn::Result<Self> {
@@ -679,8 +383,25 @@ impl Parse for Buffer {
 		//  `; LitInt` is the repetition syntax
 		if input.peek(Token![;]) {
 			input.parse::<Token![;]>()?;
-			let second = input.parse::<LitInt>()?.base10_parse()?;
-			return Ok(Buffer(iter::repeat(first != 0).take(second).collect()));
+			let tokens = input.cursor().token_stream();
+			//  Drain the input stream
+			let _ = input.step(|c| {
+				let mut cur = *c;
+				while let Some((_, rest)) = cur.token_tree() {
+					cur = rest;
+				}
+				Ok(((), cur))
+			})?;
+			return if input.is_empty() {
+				Ok(Buffer::Repeated(first != 0, tokens))
+			}
+			else {
+				Err(input.error(
+					"The bit repetition syntax `$bit ; $rep` requires that \
+					`$rep` be a single expression, with no further tokens in \
+					the macro call",
+				))
+			}
 		}
 		//  Otherwise, this is the sequence syntax
 		let mut seq = BitVec::with_capacity(1);
@@ -696,6 +417,6 @@ impl Parse for Buffer {
 			//  If the input is non-empty, it must contain an integer literal.
 			seq.push(input.parse::<LitInt>()?.base10_parse::<i32>()? != 0);
 		}
-		Ok(Buffer(seq))
+		Ok(Buffer::Sequence(seq))
 	}
 }
